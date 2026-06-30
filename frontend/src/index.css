@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme {
+  /* Primary — deep blue (from AGENTS.md) */
+  --color-primary: #1E3A5F;
+  --color-primary-light: #2A4A73;
+  --color-primary-dark: #152D4A;
+  --color-primary-50: #EBF0F7;
+  --color-primary-100: #D1DDE9;
+  --color-primary-200: #A3BBCF;
+  --color-primary-700: #1E3A5F;
+  --color-primary-800: #152D4A;
+  --color-primary-900: #0E1F35;
+
+  /* Student accent — violet/purple (from design reference) */
+  --color-violet-50: #F5F3FF;
+  --color-violet-100: #EDE9FE;
+  --color-violet-200: #DDD6FE;
+  --color-violet-500: #8B5CF6;
+  --color-violet-600: #7C3AED;
+  --color-violet-700: #6D28D9;
+  --color-violet-800: #5B21B6;
+
+  /* Company accent — green (from design reference) */
+  --color-green-50: #F0FDF4;
+  --color-green-100: #DCFCE7;
+  --color-green-600: #16A34A;
+  --color-green-700: #15803D;
+  --color-green-800: #166534;
+
+  /* Success — teal */
+  --color-success: #0D9488;
+  --color-success-light: #14B8A6;
+  --color-success-dark: #0A7A70;
+  --color-success-50: #ECFDF5;
+
+  /* Warning — amber */
+  --color-warning: #D97706;
+  --color-warning-light: #F59E0B;
+  --color-warning-dark: #B45309;
+  --color-warning-50: #FFFBEB;
+
+  /* Danger — red */
+  --color-danger: #DC2626;
+  --color-danger-light: #EF4444;
+  --color-danger-dark: #B91C1C;
+  --color-danger-50: #FEF2F2;
+
+  /* Neutral scale */
+  --color-neutral-50: #F9FAFB;
+  --color-neutral-100: #F3F4F6;
+  --color-neutral-200: #E5E7EB;
+  --color-neutral-300: #D1D5DB;
+  --color-neutral-400: #9CA3AF;
+  --color-neutral-500: #6B7280;
+  --color-neutral-600: #4B5563;
+  --color-neutral-700: #374151;
+  --color-neutral-800: #1F2937;
+  --color-neutral-900: #111827;
+
+  /* Slate — for dark UI elements matching design */
+  --color-slate-800: #1E293B;
+  --color-slate-900: #0F172A;
+
+  /* Font & Radius */
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --radius-card: 12px;
+
+  /* Animations */
+  --animate-bounce-short: bounce-short 0.5s ease-out 1;
+
+  @keyframes bounce-short {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-neutral-900);
+    background-color: #ffffff;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-300);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neutral-400);
+}

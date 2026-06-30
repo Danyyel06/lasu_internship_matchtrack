@@ -1,0 +1,322 @@
+[
+  {
+    "name": "Software and Technology",
+    "description": "Covers software development, data engineering, cybersecurity, and IT infrastructure roles across Nigerian tech companies and startups.",
+    "default_weights": {"cgpa": 15, "skills": 45, "projects": 30, "coursework": 10},
+    "sub_roles": [
+      {
+        "name": "Frontend Developer",
+        "description": "Builds user interfaces and web experiences using modern JavaScript frameworks.",
+        "skills": ["HTML & CSS", "JavaScript", "React.js", "TypeScript", "Responsive Design", "Git & Version Control", "REST API Integration", "UI/UX Principles", "Performance Optimisation", "Testing & Debugging"]
+      },
+      {
+        "name": "Backend Developer",
+        "description": "Designs and builds server-side logic, APIs, and database integrations.",
+        "skills": ["Python or Node.js", "REST API Design", "SQL Databases", "Authentication & Security", "Git & Version Control", "Docker Basics", "Cloud Fundamentals", "System Design", "Testing & Debugging", "Linux Command Line"]
+      },
+      {
+        "name": "Mobile Developer",
+        "description": "Creates cross-platform or native mobile applications for Android and iOS.",
+        "skills": ["React Native or Flutter", "Mobile UI Design", "State Management", "REST API Integration", "Push Notifications", "App Store Deployment", "Git & Version Control", "Performance Optimisation", "Testing & Debugging", "JavaScript or Dart"]
+      },
+      {
+        "name": "Data Analyst",
+        "description": "Analyses datasets to extract insights and support business decision-making.",
+        "skills": ["Python or R", "SQL", "Data Visualisation", "Excel & Google Sheets", "Statistical Analysis", "Pandas & NumPy", "Power BI or Tableau", "Data Cleaning", "Critical Thinking", "Report Writing"]
+      },
+      {
+        "name": "Cybersecurity Analyst",
+        "description": "Identifies vulnerabilities and implements controls to protect digital systems.",
+        "skills": ["Network Security", "Linux Administration", "Vulnerability Assessment", "Incident Response", "Python Scripting", "Cryptography Basics", "OWASP Top 10", "Log Analysis", "Security Frameworks", "Risk Assessment"]
+      },
+      {
+        "name": "UI/UX Designer",
+        "description": "Designs intuitive user interfaces and end-to-end user experiences for digital products.",
+        "skills": ["Figma or Sketch", "User Research", "Wireframing & Prototyping", "Usability Testing", "Design Systems", "Information Architecture", "Accessibility Standards", "Visual Design", "Interaction Design", "Stakeholder Communication"]
+      },
+      {
+        "name": "DevOps Engineer",
+        "description": "Manages CI/CD pipelines, infrastructure automation, and cloud deployments.",
+        "skills": ["Docker & Kubernetes", "CI/CD Pipelines", "Linux Administration", "Cloud Platforms (AWS/GCP)", "Infrastructure as Code", "Monitoring & Logging", "Shell Scripting", "Git & Version Control", "Networking Fundamentals", "Security Best Practices"]
+      }
+    ]
+  },
+  {
+    "name": "Engineering and Manufacturing",
+    "description": "Covers mechanical, electrical, civil, and production engineering roles in Nigerian industrial and construction sectors.",
+    "default_weights": {"cgpa": 25, "skills": 35, "projects": 25, "coursework": 15},
+    "sub_roles": [
+      {
+        "name": "Mechanical Engineer (Intern)",
+        "description": "Assists in design, analysis, and maintenance of mechanical systems and equipment.",
+        "skills": ["AutoCAD", "SolidWorks or CATIA", "Engineering Drawing", "Thermodynamics Principles", "Fluid Mechanics", "Material Science", "Maintenance Procedures", "Report Writing", "Workshop Safety", "Microsoft Excel"]
+      },
+      {
+        "name": "Electrical / Electronics Engineer (Intern)",
+        "description": "Works on electrical installations, circuit design, and electronic systems.",
+        "skills": ["Circuit Analysis", "Electrical Wiring", "PCB Design", "MATLAB or SIMULINK", "Power Systems", "Microcontrollers", "AutoCAD Electrical", "Safety Standards", "Troubleshooting", "Report Writing"]
+      },
+      {
+        "name": "Civil Engineer (Intern)",
+        "description": "Supports site supervision, structural analysis, and construction project management.",
+        "skills": ["AutoCAD", "Structural Analysis", "Site Supervision", "Construction Materials", "Surveying", "Project Scheduling", "Health & Safety", "Report Writing", "Microsoft Project", "Bill of Quantities"]
+      },
+      {
+        "name": "Production / Manufacturing Engineer (Intern)",
+        "description": "Supports production planning, quality control, and lean manufacturing practices.",
+        "skills": ["Lean Manufacturing", "Quality Control", "Production Planning", "Statistical Process Control", "CAD Software", "Machine Operation", "Inventory Management", "5S Methodology", "Root Cause Analysis", "Report Writing"]
+      },
+      {
+        "name": "Petroleum / Chemical Engineer (Intern)",
+        "description": "Assists in process engineering, refinery operations, and petrochemical production.",
+        "skills": ["Process Simulation", "HYSYS or Aspen", "HSE Procedures", "Material Balances", "Fluid Flow", "Laboratory Techniques", "Technical Report Writing", "Data Analysis", "Plant Operations", "Hazard Identification"]
+      },
+      {
+        "name": "Quality Assurance Engineer (Intern)",
+        "description": "Ensures products and processes meet defined standards and specifications.",
+        "skills": ["ISO Standards", "Statistical Sampling", "Non-Destructive Testing", "Measurement & Calibration", "Root Cause Analysis", "Technical Documentation", "Microsoft Excel", "Attention to Detail", "Audit Techniques", "Report Writing"]
+      }
+    ]
+  },
+  {
+    "name": "Business and Management",
+    "description": "Covers business administration, project management, strategy, and operations roles.",
+    "default_weights": {"cgpa": 20, "skills": 30, "projects": 20, "coursework": 30},
+    "sub_roles": [
+      {
+        "name": "Business Analyst",
+        "description": "Bridges business needs with technical solutions through data analysis and process improvement.",
+        "skills": ["Requirements Gathering", "Process Mapping", "Microsoft Excel", "Data Analysis", "Stakeholder Management", "Report Writing", "Problem Solving", "Presentation Skills", "Business Case Writing", "SQL Basics"]
+      },
+      {
+        "name": "Project Management Intern",
+        "description": "Supports planning, execution, and monitoring of projects across teams.",
+        "skills": ["Project Planning", "Risk Management", "Microsoft Project or Asana", "Stakeholder Communication", "Budget Tracking", "Meeting Facilitation", "Report Writing", "Gantt Charts", "Agile Basics", "Time Management"]
+      },
+      {
+        "name": "Operations Intern",
+        "description": "Assists in optimising day-to-day business operations and supply chain activities.",
+        "skills": ["Process Optimisation", "Inventory Management", "Microsoft Excel", "Logistics Coordination", "Vendor Management", "Data Entry & Reporting", "Communication Skills", "Problem Solving", "ERP Basics", "Customer Service"]
+      },
+      {
+        "name": "Human Resources Intern",
+        "description": "Supports recruitment, onboarding, and HR administration activities.",
+        "skills": ["Recruitment Support", "HR Administration", "Employee Records Management", "Communication Skills", "Microsoft Office Suite", "Confidentiality & Ethics", "Policy Understanding", "Onboarding Coordination", "Interviewing Basics", "Report Writing"]
+      },
+      {
+        "name": "Strategy & Consulting Intern",
+        "description": "Contributes to strategy development, market analysis, and client presentations.",
+        "skills": ["Strategic Analysis", "Market Research", "PowerPoint Presentations", "Business Case Development", "Competitive Analysis", "Data Interpretation", "Stakeholder Management", "Critical Thinking", "Report Writing", "Excel Modelling"]
+      },
+      {
+        "name": "Entrepreneurship / Startup Intern",
+        "description": "Works within an early-stage company across multiple business functions.",
+        "skills": ["Product Thinking", "Customer Discovery", "Lean Startup Methods", "Marketing Basics", "Financial Modelling", "Pitch Deck Creation", "Social Media", "Communication Skills", "Adaptability", "Time Management"]
+      }
+    ]
+  },
+  {
+    "name": "Finance and Accounting",
+    "description": "Covers financial analysis, accounting, auditing, and investment roles in Nigerian banks, firms, and corporations.",
+    "default_weights": {"cgpa": 30, "skills": 25, "projects": 15, "coursework": 30},
+    "sub_roles": [
+      {
+        "name": "Accounting Intern",
+        "description": "Assists in bookkeeping, financial statement preparation, and account reconciliation.",
+        "skills": ["Double-Entry Bookkeeping", "Microsoft Excel", "Financial Statements", "Account Reconciliation", "Sage or QuickBooks", "Tax Basics", "Attention to Detail", "Report Writing", "Payroll Basics", "Audit Support"]
+      },
+      {
+        "name": "Financial Analyst Intern",
+        "description": "Supports financial modelling, forecasting, and investment analysis.",
+        "skills": ["Financial Modelling", "Microsoft Excel (Advanced)", "Variance Analysis", "Financial Statements Reading", "Forecasting", "Data Analysis", "PowerPoint", "Bloomberg or Reuters Basics", "Critical Thinking", "Report Writing"]
+      },
+      {
+        "name": "Audit & Assurance Intern",
+        "description": "Assists in internal and external audit procedures and compliance reviews.",
+        "skills": ["Audit Procedures", "Internal Controls", "Risk Assessment", "IFRS Standards", "Microsoft Excel", "Working Papers", "Attention to Detail", "Analytical Skills", "Confidentiality", "Report Writing"]
+      },
+      {
+        "name": "Banking Operations Intern",
+        "description": "Supports daily banking operations, customer service, and transaction processing.",
+        "skills": ["Banking Operations", "Customer Service", "Anti-Money Laundering Basics", "Compliance Awareness", "Microsoft Excel", "Cash Management", "Attention to Detail", "Communication Skills", "Data Entry", "Problem Solving"]
+      },
+      {
+        "name": "Tax Intern",
+        "description": "Assists in tax computation, returns filing, and regulatory compliance.",
+        "skills": ["Nigerian Tax Laws", "FIRS Regulations", "VAT Computation", "Personal Income Tax", "Company Income Tax", "Microsoft Excel", "Attention to Detail", "Research Skills", "Report Writing", "Communication Skills"]
+      }
+    ]
+  },
+  {
+    "name": "Health and Life Sciences",
+    "description": "Covers clinical, pharmaceutical, public health, and biomedical roles in Nigerian hospitals, labs, and health agencies.",
+    "default_weights": {"cgpa": 35, "skills": 30, "projects": 15, "coursework": 20},
+    "sub_roles": [
+      {
+        "name": "Clinical / Medical Intern",
+        "description": "Rotates through hospital departments providing supervised patient care support.",
+        "skills": ["Patient Assessment", "Medical History Taking", "Clinical Procedures", "Pharmacology Basics", "Medical Ethics", "Electronic Health Records", "Infection Control", "Team Collaboration", "Report Writing", "Emergency Response Basics"]
+      },
+      {
+        "name": "Pharmacy Intern",
+        "description": "Assists in dispensing, drug counselling, and pharmaceutical operations.",
+        "skills": ["Drug Dispensing", "Pharmacology", "Drug Interactions", "Patient Counselling", "Inventory Management", "Compounding Basics", "Regulatory Compliance", "Communication Skills", "Attention to Detail", "Record Keeping"]
+      },
+      {
+        "name": "Public Health Intern",
+        "description": "Supports health promotion, disease surveillance, and community health programmes.",
+        "skills": ["Epidemiology Basics", "Health Data Collection", "Community Engagement", "Health Education", "Disease Surveillance", "Statistical Analysis", "Report Writing", "Advocacy Skills", "Programme Coordination", "Microsoft Excel"]
+      },
+      {
+        "name": "Biomedical Science / Lab Intern",
+        "description": "Performs laboratory analyses and assists in diagnostic and research procedures.",
+        "skills": ["Laboratory Techniques", "Microscopy", "Sample Handling", "Quality Control", "Haematology", "Microbiology", "Biochemistry", "Lab Safety", "Record Keeping", "Report Writing"]
+      },
+      {
+        "name": "Nursing / Midwifery Intern",
+        "description": "Provides supervised nursing care across clinical wards and community settings.",
+        "skills": ["Patient Care", "Vital Signs Monitoring", "Medication Administration", "Wound Care", "Infection Control", "Documentation", "Empathy & Communication", "Team Collaboration", "Emergency Response", "Maternal Care Basics"]
+      }
+    ]
+  },
+  {
+    "name": "Media and Communications",
+    "description": "Covers journalism, broadcasting, digital marketing, public relations, and creative content roles.",
+    "default_weights": {"cgpa": 15, "skills": 40, "projects": 30, "coursework": 15},
+    "sub_roles": [
+      {
+        "name": "Digital Marketing Intern",
+        "description": "Manages social media, content strategy, SEO, and online advertising campaigns.",
+        "skills": ["Social Media Management", "Content Writing", "SEO Fundamentals", "Google Analytics", "Email Marketing", "Graphic Design Basics", "Canva or Adobe", "Community Management", "Campaign Reporting", "Copywriting"]
+      },
+      {
+        "name": "Journalism / Content Intern",
+        "description": "Researches, writes, and edits news stories, articles, and multimedia content.",
+        "skills": ["News Writing", "Research & Fact-Checking", "Interviewing", "Editorial Judgement", "Copyediting", "Photography Basics", "Video Editing", "Social Media Publishing", "AP or Chicago Style", "Deadline Management"]
+      },
+      {
+        "name": "Public Relations Intern",
+        "description": "Supports brand reputation management, media relations, and press communications.",
+        "skills": ["Press Release Writing", "Media Relations", "Brand Messaging", "Crisis Communication Basics", "Event Coordination", "Social Media", "Stakeholder Engagement", "Research Skills", "Microsoft Office", "Communication Skills"]
+      },
+      {
+        "name": "Graphic Design Intern",
+        "description": "Creates visual assets for digital and print media across marketing and branding projects.",
+        "skills": ["Adobe Photoshop", "Adobe Illustrator", "Canva", "Typography", "Colour Theory", "Layout Design", "Brand Identity", "Print Production", "Social Media Visuals", "Attention to Detail"]
+      },
+      {
+        "name": "Video Production Intern",
+        "description": "Assists in filming, editing, and post-production of video content.",
+        "skills": ["Video Shooting", "Adobe Premiere or DaVinci Resolve", "Scriptwriting", "Storyboarding", "Lighting Techniques", "Audio Recording", "Motion Graphics Basics", "YouTube / Social Distribution", "Storytelling", "Deadline Management"]
+      }
+    ]
+  },
+  {
+    "name": "Education and Social Services",
+    "description": "Covers teaching, social work, community development, and NGO programme delivery roles.",
+    "default_weights": {"cgpa": 25, "skills": 25, "projects": 20, "coursework": 30},
+    "sub_roles": [
+      {
+        "name": "Teaching / Instruction Intern",
+        "description": "Delivers supervised classroom instruction and supports curriculum development.",
+        "skills": ["Lesson Planning", "Classroom Management", "Subject Matter Knowledge", "Assessment Design", "Communication Skills", "Empathy", "Microsoft Office", "Student Engagement", "Report Writing", "Differentiated Instruction"]
+      },
+      {
+        "name": "Social Work Intern",
+        "description": "Provides case management, counselling support, and community outreach services.",
+        "skills": ["Case Management", "Counselling Basics", "Community Outreach", "Report Writing", "Empathy & Active Listening", "Advocacy", "Child Protection Awareness", "Home Visits", "Crisis Support", "Ethics & Confidentiality"]
+      },
+      {
+        "name": "NGO / Development Intern",
+        "description": "Supports programme implementation, monitoring, and stakeholder engagement in development projects.",
+        "skills": ["M&E Basics", "Proposal Writing", "Community Engagement", "Data Collection", "Report Writing", "Stakeholder Coordination", "Microsoft Excel", "Donor Reporting Basics", "Project Management Tools", "Communication Skills"]
+      },
+      {
+        "name": "Counselling / Psychology Intern",
+        "description": "Provides supervised counselling and psychological assessment support.",
+        "skills": ["Counselling Techniques", "Active Listening", "Psychological Assessment Basics", "Case Notes", "Ethics & Confidentiality", "Crisis Intervention", "Empathy", "Mental Health Awareness", "Group Facilitation", "Report Writing"]
+      }
+    ]
+  },
+  {
+    "name": "Architecture and Built Environment",
+    "description": "Covers architecture, urban planning, quantity surveying, and estate management roles.",
+    "default_weights": {"cgpa": 25, "skills": 30, "projects": 30, "coursework": 15},
+    "sub_roles": [
+      {
+        "name": "Architecture Intern",
+        "description": "Assists in architectural design, drafting, and project documentation under a registered architect.",
+        "skills": ["AutoCAD", "Revit or ArchiCAD", "Architectural Drawing", "3D Modelling", "Design Principles", "Building Regulations", "Model Making", "Presentation Skills", "Report Writing", "Site Visits"]
+      },
+      {
+        "name": "Quantity Surveying Intern",
+        "description": "Supports cost estimation, bill of quantities preparation, and contract administration.",
+        "skills": ["Bill of Quantities", "Cost Estimation", "AutoCAD", "Contract Administration Basics", "Site Measurement", "Microsoft Excel", "Procurement Basics", "Report Writing", "Attention to Detail", "Building Materials Knowledge"]
+      },
+      {
+        "name": "Urban & Regional Planning Intern",
+        "description": "Assists in land use planning, GIS mapping, and community engagement for development projects.",
+        "skills": ["GIS Mapping", "ArcGIS or QGIS", "Land Use Analysis", "Urban Design Principles", "Community Consultation", "Research Skills", "Report Writing", "Policy Analysis", "AutoCAD Basics", "Data Collection"]
+      },
+      {
+        "name": "Estate Management Intern",
+        "description": "Supports property valuation, facility management, and real estate transactions.",
+        "skills": ["Property Valuation", "Facility Management", "Lease Administration", "Market Research", "Microsoft Excel", "Communication Skills", "Report Writing", "Negotiation Basics", "Real Estate Law Basics", "Client Relations"]
+      }
+    ]
+  },
+  {
+    "name": "Science and Research",
+    "description": "Covers laboratory science, environmental science, mathematics, and research roles in Nigerian academic and industrial settings.",
+    "default_weights": {"cgpa": 35, "skills": 30, "projects": 20, "coursework": 15},
+    "sub_roles": [
+      {
+        "name": "Research Assistant",
+        "description": "Supports academic or industrial research through data collection, analysis, and literature review.",
+        "skills": ["Research Methodology", "Literature Review", "Data Collection", "Statistical Analysis", "R or Python", "Microsoft Excel", "Scientific Writing", "Laboratory Safety", "Critical Thinking", "Reference Management (Mendeley/Zotero)"]
+      },
+      {
+        "name": "Environmental Science Intern",
+        "description": "Assists in environmental monitoring, impact assessment, and field surveys.",
+        "skills": ["Environmental Sampling", "GIS Basics", "Environmental Impact Assessment", "Field Data Collection", "Laboratory Analysis", "EPA Standards Awareness", "Report Writing", "Microsoft Excel", "Regulatory Compliance", "Team Collaboration"]
+      },
+      {
+        "name": "Laboratory Science Intern",
+        "description": "Conducts experiments, analyses samples, and maintains laboratory records in a research or industrial lab.",
+        "skills": ["Laboratory Techniques", "Instrumentation", "Sample Preparation", "Quality Control", "Chemical Handling", "Data Recording", "Standard Operating Procedures", "Report Writing", "Attention to Detail", "Safety Compliance"]
+      },
+      {
+        "name": "Mathematics / Statistics Intern",
+        "description": "Applies mathematical and statistical methods to analyse data and solve quantitative problems.",
+        "skills": ["Statistical Modelling", "R or Python", "SPSS or Stata", "Probability Theory", "Data Visualisation", "Regression Analysis", "Mathematical Proofs", "Microsoft Excel", "Research Writing", "Critical Thinking"]
+      }
+    ]
+  },
+  {
+    "name": "Legal and Compliance",
+    "description": "Covers legal practice, compliance, policy analysis, and regulatory roles in Nigerian law firms, banks, and public sector organisations.",
+    "default_weights": {"cgpa": 35, "skills": 20, "projects": 10, "coursework": 35},
+    "sub_roles": [
+      {
+        "name": "Legal Research Intern",
+        "description": "Researches case law, statutes, and legal opinions to support solicitors and barristers.",
+        "skills": ["Legal Research", "Case Law Analysis", "Statute Interpretation", "Legal Writing", "LawPavilion or LexisNexis", "Memo Drafting", "Attention to Detail", "Critical Thinking", "Microsoft Word", "Citation Standards"]
+      },
+      {
+        "name": "Corporate Law Intern",
+        "description": "Assists in contract drafting, corporate governance, and transactional legal support.",
+        "skills": ["Contract Drafting", "Corporate Governance", "CAMA 2020 Awareness", "Legal Due Diligence", "Document Review", "Legal Writing", "Attention to Detail", "Commercial Awareness", "Microsoft Office", "Communication Skills"]
+      },
+      {
+        "name": "Compliance Intern",
+        "description": "Supports regulatory compliance, AML/KYC processes, and policy implementation.",
+        "skills": ["AML/KYC Procedures", "Regulatory Compliance", "CBN Guidelines Awareness", "Risk Assessment", "Policy Review", "Report Writing", "Attention to Detail", "Data Integrity", "Communication Skills", "Microsoft Excel"]
+      },
+      {
+        "name": "Litigation Support Intern",
+        "description": "Assists in court filings, case preparation, and legal documentation for active litigation matters.",
+        "skills": ["Court Filing Procedures", "Legal Documentation", "Case Management", "Evidence Review", "Legal Research", "Brief Writing", "Scheduling", "Attention to Detail", "Communication Skills", "Microsoft Office"]
+      }
+    ]
+  }
+]

@@ -1,0 +1,33 @@
+# Node.js
+node_modules/
+dist/
+build/
+npm-debug.log
+yarn-error.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.env
+
+# Uploads
+uploads/
+
+# OS/IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.suo
+*.user
+
+# Logs
+logs/
+*.log
+
+# Pytest
+.pytest_cache/
