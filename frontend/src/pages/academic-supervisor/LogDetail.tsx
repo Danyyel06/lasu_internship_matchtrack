@@ -39,10 +39,95 @@ interface LogDetailProps {
   onClose: () => void;
 }
 
+// ─── PhotoCarousel ────────────────────────────────────────────────────────────
+// A small self-contained carousel used in the drill-down modal.
+// Extracted as a named component so useState/useRef obey the Rules of Hooks.
+interface Slide { url: string; label: string; color: 'blue' | 'violet'; }
+
+function PhotoCarousel({ slides }: { slides: Slide[] }) {
+  const [idx, setIdx] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+
+  if (slides.length === 0) return null;
+
+  const prev = () => setIdx(i => (i - 1 + slides.length) % slides.length);
+  const next = () => setIdx(i => (i + 1) % slides.length);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const delta = e.changedTouches[0].clientX - touchStartX.current;
+    if (delta < -40) next();
+    else if (delta > 40) prev();
+    touchStartX.current = null;
+  };
+
+  return (
+    <div>
+      {/* Slide frame */}
+      <div
+        className="relative rounded-xl overflow-hidden border border-neutral-200 bg-neutral-100"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        <img
+          key={slides[idx].url}
+          src={`http://localhost:8000${slides[idx].url}`}
+          alt={`${slides[idx].label} workplace`}
+          className="w-full max-h-56 object-cover transition-opacity duration-300"
+        />
+        {/* Day label badge */}
+        <div className={`absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-bold text-white shadow ${
+          slides[idx].color === 'blue' ? 'bg-blue-600' : 'bg-violet-600'
+        }`}>
+          {slides[idx].label}
+        </div>
+        {/* Arrow buttons — only if more than one slide */}
+        {slides.length > 1 && (
+          <>
+            <button
+              onClick={prev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center text-sm transition-colors"
+              aria-label="Previous photo"
+            >
+              ‹
+            </button>
+            <button
+              onClick={next}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center text-sm transition-colors"
+              aria-label="Next photo"
+            >
+              ›
+            </button>
+          </>
+        )}
+      </div>
+      {/* Dot indicators */}
+      {slides.length > 1 && (
+        <div className="flex justify-center gap-1.5 mt-2">
+          {slides.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setIdx(i)}
+              className={`w-2 h-2 rounded-full transition-colors ${
+                i === idx ? 'bg-neutral-700' : 'bg-neutral-300'
+              }`}
+              aria-label={`Go to slide ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+
 export default function LogDetail({ studentId, weekId, onClose }: LogDetailProps) {
   const [data, setData] = useState<LogDetailData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activePhoto, setActivePhoto] = useState<'wed' | 'sat'>('wed');
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -120,38 +205,14 @@ export default function LogDetail({ studentId, weekId, onClose }: LogDetailProps
             </div>
           ) : data ? (
             <>
-              {/* Photo Carousel */}
+              {/* ─── Photo Carousel ─── */}
               {(data.wedPhotoUrl || data.satPhotoUrl) && (
-                <div>
-                  {/* Tab selector — only show if both photos exist */}
-                  {data.wedPhotoUrl && data.satPhotoUrl && (
-                    <div className="flex gap-2 mb-3">
-                      <button
-                        onClick={() => setActivePhoto('wed')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                          activePhoto === 'wed' ? 'bg-blue-600 text-white' : 'bg-neutral-100 text-neutral-600'
-                        }`}
-                      >
-                        Wednesday
-                      </button>
-                      <button
-                        onClick={() => setActivePhoto('sat')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                          activePhoto === 'sat' ? 'bg-violet-600 text-white' : 'bg-neutral-100 text-neutral-600'
-                        }`}
-                      >
-                        Saturday
-                      </button>
-                    </div>
-                  )}
-                  <div className="rounded-xl overflow-hidden border border-neutral-200">
-                    <img
-                      src={`http://localhost:8000${activePhoto === 'wed' ? data.wedPhotoUrl : data.satPhotoUrl}`}
-                      alt={`${activePhoto} workplace`}
-                      className="w-full max-h-56 object-cover"
-                    />
-                  </div>
-                </div>
+                <PhotoCarousel
+                  slides={[
+                    ...(data.wedPhotoUrl ? [{ url: data.wedPhotoUrl, label: 'Wednesday', color: 'blue'   as const }] : []),
+                    ...(data.satPhotoUrl ? [{ url: data.satPhotoUrl, label: 'Saturday',  color: 'violet' as const }] : []),
+                  ]}
+                />
               )}
 
               {/* Submission timestamps */}

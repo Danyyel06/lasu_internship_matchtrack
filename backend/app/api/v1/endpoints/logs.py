@@ -93,16 +93,16 @@ async def upload_artifact(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Accept a photo from the student's device camera.
-    upload_source must be 'camera' — gallery uploads are rejected server-side.
+    Accept a photo or screenshot from the student's device.
+    upload_source: 'camera' for a live rear-camera photo, 'file' for a screenshot or
+    downloaded file (e.g. VS Code, Figma, lab report). Both are accepted — enforcement
+    shifts to the AI Validation Quiz which is generated from the student's text logs.
     check_in_type is optional; it will be linked when the check-in is submitted.
     Returns an artifact_id to attach to the subsequent check-in submission.
     """
-    if upload_source != "camera":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only camera uploads are permitted (upload_source must be 'camera')",
-        )
+    # Validate upload_source is one of the two accepted values
+    if upload_source not in ("camera", "file"):
+        upload_source = "camera"  # default to camera for any unrecognised value
 
     resolved_check_in_type = None
     if check_in_type and check_in_type in ("wednesday", "saturday"):

@@ -2,32 +2,49 @@ import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+// ─── Field definitions with per-field limit type ────────────────────────────
+// limitType: 'chars' uses maxLength; 'words' uses a live word counter.
 const FIELDS = [
   {
     key: 'focus_area',
     label: 'Focus Area',
-    hint: 'What area of work did you focus on?',
-    max: 300,
+    hint: 'e.g. "Database Schema Design" (60 chars max)',
+    max: 60,
+    limitType: 'chars' as const,
   },
   {
     key: 'core_action',
     label: 'Core Action Taken',
-    hint: 'What was the primary action you took?',
-    max: 300,
+    hint: 'What major task did you tackle this session?',
+    max: 150,
+    limitType: 'words' as const,
   },
   {
     key: 'the_blocker',
     label: 'The Blocker',
-    hint: 'What obstacle or challenge did you encounter?',
-    max: 300,
+    hint: 'What challenge did you face and how did you solve it?',
+    max: 100,
+    limitType: 'words' as const,
   },
   {
     key: 'the_takeaway',
-    label: 'Key Takeaway',
-    hint: 'What did you learn or conclude?',
-    max: 300,
+    label: 'The Takeaway',
+    hint: 'What was your biggest learning milestone this session?',
+    max: 100,
+    limitType: 'words' as const,
   },
 ];
+
+/** Returns the word count of a string. */
+function countWords(text: string): number {
+  return text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+}
+
+/** Returns true if this field's content is within its limit. */
+function withinLimit(field: typeof FIELDS[number], value: string): boolean {
+  if (field.limitType === 'chars') return value.length <= field.max;
+  return countWords(value) <= field.max;
+}
 
 type CheckInType = 'wednesday' | 'saturday';
 
@@ -45,90 +62,33 @@ export default function LogCheckinForm() {
     the_takeaway: '',
   });
 
-  const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [artifactId, setArtifactId] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cameraOpen, setCameraOpen] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [cameraUnavailable, setCameraUnavailable] = useState(false);
-  const [stream, setStream] = useState<MediaStream | null>(null);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // Ref for hidden file inputs
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFieldChange = (key: string, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }));
   };
 
-  const openCamera = async () => {
-    setCameraError(null);
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
-        audio: false,
-      });
-      setStream(mediaStream);
-      setCameraOpen(true);
-      // Small delay to let the video element render
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
-          videoRef.current.play().catch(console.error);
-        }
-      }, 100);
-    } catch (err: any) {
-      const noCamera = err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError';
-      const denied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError';
-      if (noCamera) {
-        setCameraUnavailable(true);
-        setCameraError('No camera detected on this device. You may submit without a photo on desktop.');
-      } else if (denied) {
-        setCameraError('Camera permission denied. Please allow camera access in your browser settings, or submit without a photo.');
-      } else {
-        setCameraError('Could not access camera. Please try again, or submit without a photo.');
-      }
-    }
-  };
-
-  const stopCamera = () => {
-    stream?.getTracks().forEach(t => t.stop());
-    setStream(null);
-    setCameraOpen(false);
-  };
-
-  const capturePhoto = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob(
-      async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], `checkin_${type}_${Date.now()}.jpg`, { type: 'image/jpeg' });
-        setPhoto(file);
-        setPhotoPreview(canvas.toDataURL('image/jpeg', 0.85));
-        stopCamera();
-        await uploadPhoto(file);
-      },
-      'image/jpeg',
-      0.85
-    );
-  };
-
-  const uploadPhoto = async (file: File) => {
+  // ─── Upload helper (shared by both actions) ─────────────────────────────
+  const uploadPhoto = async (file: File, source: 'camera' | 'file') => {
     setUploading(true);
     setError(null);
+    // Show a local preview immediately
+    const objectUrl = URL.createObjectURL(file);
+    setPhotoPreview(objectUrl);
+    setArtifactId(null);
     try {
       const token = localStorage.getItem('access_token');
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('upload_source', 'camera');
-      // check_in_type is now optional on the backend — will be set when check-in is submitted
+      formData.append('upload_source', source);
       const res = await axios.post(
         'http://localhost:8000/api/v1/logs/artifact-upload',
         formData,
@@ -141,14 +101,25 @@ export default function LogCheckinForm() {
       );
       setArtifactId(res.data.artifact_id);
     } catch (err: any) {
-      setError(
-        err?.response?.data?.detail || 'Photo upload failed. Please retake and try again.'
-      );
-      setPhoto(null);
+      setError(err?.response?.data?.detail || 'Photo upload failed. Please try again.');
       setPhotoPreview(null);
     } finally {
       setUploading(false);
     }
+  };
+
+  // Action A — live camera via file input with capture attribute
+  const handleCameraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadPhoto(file, 'camera');
+    e.target.value = ''; // reset so same file can be re-selected
+  };
+
+  // Action B — file picker (screenshots, downloads)
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadPhoto(file, 'file');
+    e.target.value = '';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -162,10 +133,11 @@ export default function LogCheckinForm() {
       return;
     }
 
-    // Photo is strongly encouraged but not a hard block on desktop where no camera exists.
-    // If camera is available but they haven't captured yet, remind them.
-    if (!artifactId && !cameraUnavailable && !cameraError) {
-      setError('A workplace photo is required. Please capture one using the camera below.');
+    // Validate all limits respected
+    const overLimit = FIELDS.find(f => !withinLimit(f, form[f.key]));
+    if (overLimit) {
+      const unit = overLimit.limitType === 'chars' ? 'characters' : 'words';
+      setError(`"${overLimit.label}" exceeds the ${overLimit.max} ${unit} limit. Please shorten it.`);
       return;
     }
 
@@ -195,8 +167,8 @@ export default function LogCheckinForm() {
   };
 
   const allFieldsFilled = FIELDS.every(f => form[f.key].trim().length > 0);
-  // Submit is enabled when all text fields are filled, regardless of photo.
-  const canSubmit = allFieldsFilled && !submitting && !uploading;
+  const allWithinLimits = FIELDS.every(f => withinLimit(f, form[f.key]));
+  const canSubmit = allFieldsFilled && allWithinLimits && !submitting && !uploading;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-10">
@@ -218,8 +190,8 @@ export default function LogCheckinForm() {
         <h1 className="text-2xl font-bold text-neutral-900">{label} Check-in</h1>
         <p className="text-neutral-500 mt-1 text-sm">
           {isWednesday
-            ? 'Record your mid-week progress. Include a live workplace photo to verify your presence.'
-            : 'Wrap up your week with a full reflection and a live Saturday workplace photo.'}
+            ? 'Record your mid-week progress and attach a photo or screenshot of your work.'
+            : 'Wrap up your week with a full reflection and attach evidence of your Saturday work.'}
         </p>
       </div>
 
@@ -234,84 +206,86 @@ export default function LogCheckinForm() {
         {/* Text reflection fields */}
         <div className="bg-white rounded-xl border border-neutral-200 p-6 shadow-sm space-y-5">
           <h2 className="font-bold text-neutral-900">Your Reflection</h2>
-          {FIELDS.map(({ key, label, hint, max }) => (
-            <div key={key}>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-semibold text-neutral-800">{label}</label>
-                <span className={`text-xs tabular-nums ${
-                  form[key].length > max * 0.85 ? 'text-amber-600 font-medium' : 'text-neutral-400'
-                }`}>
-                  {form[key].length} / {max}
-                </span>
+          {FIELDS.map((field) => {
+            const { key, label: fieldLabel, hint, max, limitType } = field;
+            const value = form[key];
+            const count = limitType === 'chars' ? value.length : countWords(value);
+            const isOver = count > max;
+            const isNearLimit = !isOver && count > max * 0.85;
+            return (
+              <div key={key}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-semibold text-neutral-800">{fieldLabel}</label>
+                  <span className={`text-xs tabular-nums font-medium ${
+                    isOver ? 'text-red-600' : isNearLimit ? 'text-amber-600' : 'text-neutral-400'
+                  }`}>
+                    {count} / {max} {limitType === 'words' ? 'words' : 'chars'}
+                  </span>
+                </div>
+                <textarea
+                  value={value}
+                  onChange={e => handleFieldChange(key, e.target.value)}
+                  // Only apply hard maxLength for char-limited fields
+                  maxLength={limitType === 'chars' ? max : undefined}
+                  placeholder={hint}
+                  rows={key === 'focus_area' ? 2 : 3}
+                  className={`w-full rounded-lg border px-4 py-3 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-shadow ${
+                    isOver ? 'border-red-300 bg-red-50' : 'border-neutral-200'
+                  }`}
+                />
+                {isOver && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {limitType === 'words'
+                      ? `Too many words — please trim to ${max} words.`
+                      : `Too many characters — ${max} max.`}
+                  </p>
+                )}
               </div>
-              <textarea
-                value={form[key]}
-                onChange={e => handleFieldChange(key, e.target.value)}
-                maxLength={max}
-                placeholder={hint}
-                rows={3}
-                className="w-full rounded-lg border border-neutral-200 px-4 py-3 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-shadow"
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* KYC Photo section */}
-        <div className="bg-white rounded-xl border border-neutral-200 p-6 shadow-sm">
-          <h2 className="font-bold text-neutral-900 mb-1">Workplace Photo</h2>
-          <p className="text-sm text-neutral-500 mb-4">
-            Take a live photo using your device's rear camera to verify your workplace presence.
-            Gallery uploads are not accepted.
-            {cameraUnavailable && <span className="block mt-1 text-amber-600 font-medium">No camera found — you can still submit your reflection without a photo.</span>}
-          </p>
+        {/* ── Trust but Verify Artifact Upload ─────────────────────────────── */}
+        <div className="bg-white rounded-xl border border-neutral-200 p-6 shadow-sm space-y-4">
+          <div>
+            <h2 className="font-bold text-neutral-900 mb-1">Workplace Evidence</h2>
 
-          {/* Camera error */}
-          {cameraError && (
-            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
-              {cameraError}
+            {/* UX Scarecrow Banner — spec §1.2 */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
+              <span className="text-xl flex-shrink-0">⚠️</span>
+              <p className="text-sm text-amber-800 leading-relaxed">
+                <span className="font-bold">Upload a live photo or a recent screenshot of your specific task.</span>{' '}
+                Note: Uploading old or irrelevant images will not help you pass the Weekly AI Validation Quiz,
+                which is generated directly from your logs.
+              </p>
             </div>
-          )}
+          </div>
 
-          {/* Live camera viewfinder */}
-          {cameraOpen && (
-            <div className="mb-4 relative rounded-xl overflow-hidden bg-black border border-neutral-200">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full max-h-72 object-cover"
-              />
-              <div className="absolute inset-0 flex flex-col justify-between p-4">
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={stopCamera}
-                    className="w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center text-xs hover:bg-black/70 transition-colors"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="flex justify-center">
-                  <button
-                    type="button"
-                    onClick={capturePhoto}
-                    className="w-16 h-16 rounded-full bg-white border-4 border-neutral-200 shadow-lg flex items-center justify-center hover:bg-neutral-100 transition-colors"
-                    aria-label="Capture photo"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-blue-600" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Hidden file inputs */}
+          {/* Action A — live camera (rear-facing on mobile) */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleCameraChange}
+          />
+          {/* Action B — file/screenshot picker */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
 
-          {/* Photo preview after capture */}
-          {photoPreview && !cameraOpen && (
-            <div className="mb-4 rounded-xl overflow-hidden border border-neutral-200 relative">
+          {/* Photo preview */}
+          {photoPreview && (
+            <div className="relative rounded-xl overflow-hidden border border-neutral-200">
               <img
                 src={photoPreview}
-                alt="Captured workplace photo"
+                alt="Uploaded evidence"
                 className="w-full max-h-56 object-cover"
               />
               {uploading && (
@@ -320,27 +294,45 @@ export default function LogCheckinForm() {
                 </div>
               )}
               {artifactId && (
-                <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-green-600 text-white text-xs font-bold">
+                <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-green-600 text-white text-xs font-bold shadow">
                   ✓ Uploaded
                 </div>
               )}
             </div>
           )}
 
-          {/* Camera trigger button */}
-          {!cameraOpen && (
+          {/* Dual action buttons */}
+          <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={openCamera}
-              className={`w-full py-3.5 rounded-xl text-sm font-semibold transition-colors border-2 border-dashed ${
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={uploading}
+              className={`py-3 rounded-xl text-sm font-semibold border-2 border-dashed transition-colors ${
                 artifactId
                   ? 'border-green-300 text-green-700 hover:bg-green-50'
-                  : 'border-neutral-300 text-neutral-600 hover:border-blue-400 hover:text-blue-600'
-              }`}
+                  : 'border-blue-300 text-blue-700 hover:bg-blue-50'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              {artifactId ? '📸 Retake Photo' : '📷 Open Camera'}
+              📷 {artifactId ? 'Retake Photo' : 'Open Camera'}
             </button>
-          )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className={`py-3 rounded-xl text-sm font-semibold border-2 border-dashed transition-colors ${
+                artifactId
+                  ? 'border-green-300 text-green-700 hover:bg-green-50'
+                  : 'border-violet-300 text-violet-700 hover:bg-violet-50'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              🖼️ {artifactId ? 'Replace File' : 'Upload Screenshot'}
+            </button>
+          </div>
+
+          <p className="text-xs text-neutral-400 text-center">
+            Use <span className="font-medium text-neutral-600">Open Camera</span> for live workplace photos ·{' '}
+            <span className="font-medium text-neutral-600">Upload Screenshot</span> for code editors, design tools, or lab reports
+          </p>
         </div>
 
         {/* Submit */}
@@ -353,15 +345,18 @@ export default function LogCheckinForm() {
               : 'bg-neutral-900 hover:bg-neutral-700 text-white'
           }`}
         >
-          {submitting ? 'Submitting...' : uploading ? 'Uploading photo...' : `Submit ${label} Check-in`}
+          {submitting ? 'Submitting...' : uploading ? 'Uploading evidence...' : `Submit ${label} Check-in`}
         </button>
 
-        {!allFieldsFilled && (
+        {(!allFieldsFilled || !allWithinLimits) && (
           <p className="text-xs text-center text-neutral-400">
-            Fill in all four reflection fields to enable submission.
+            {!allFieldsFilled
+              ? 'Fill in all four reflection fields to enable submission.'
+              : 'One or more fields exceeds its word or character limit.'}
           </p>
         )}
       </form>
     </div>
   );
 }
+
