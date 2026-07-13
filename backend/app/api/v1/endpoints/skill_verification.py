@@ -7,7 +7,8 @@ from sqlalchemy import select
 from app.db.session import get_db
 from app.dependencies import get_current_user, require_role
 from app.models.user import User, UserRole
-from app.models.student import Student, StudentSkill, SkillVerificationQuestion
+from app.models.student import Student, StudentSkill
+from app.models.skill_verification import SkillVerificationQuestion
 from app.models.job_family import SubRole, JobFamily
 from app.models.student import StudentJobFamilySelection
 
