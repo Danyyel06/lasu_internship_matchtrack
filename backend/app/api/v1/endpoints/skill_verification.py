@@ -15,7 +15,7 @@ from app.schemas.skill_verification import (
     SkillVerificationStatusResponse, SkillVerificationStatusItem,
     BeginVerificationResponse, SkillQuestionGroup, SkillQuestionItem,
     SubmitSkillRequest, SubmitSkillResponse, CompleteVerificationResponse,
-    AddSkillRequest, ReVerifyResponse
+    AddSkillRequest, ReVerifyRequest, ReVerifyResponse
 )
 from app.services.skill_verification_service import SkillVerificationService
 
@@ -309,12 +309,13 @@ async def upgrade_skill(
         profile_snapshot_hash=hash_str
     )
 
-@router.post("/re-verify/{skill_name:path}", response_model=ReVerifyResponse)
+@router.post("/re-verify", response_model=ReVerifyResponse)
 async def re_verify(
-    skill_name: str,
+    payload: ReVerifyRequest,
     current_user: User = Depends(require_role(UserRole.STUDENT)),
     db: AsyncSession = Depends(get_db)
 ):
+    skill_name = payload.skill_name
     student = await db.scalar(select(Student).where(Student.user_id == current_user.id))
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")

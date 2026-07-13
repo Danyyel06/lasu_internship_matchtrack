@@ -64,7 +64,7 @@ export default function SkillVerification() {
   const handleReVerify = async (skill_name: string) => {
     setActionLoading(true);
     try {
-      const res = await axiosInstance.post(`/skill-verification/re-verify/${encodeURIComponent(skill_name)}`);
+      const res = await axiosInstance.post(`/skill-verification/re-verify`, { skill_name });
       if (res.data.allowed) {
         navigate('/student/skill-verification/test');
       } else {
