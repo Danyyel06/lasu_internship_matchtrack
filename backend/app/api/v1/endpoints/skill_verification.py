@@ -323,8 +323,8 @@ async def re_verify(
     if not skill:
         raise HTTPException(status_code=404, detail="Skill not found")
         
-    if skill.verification_status not in ["failed", "re_verifying"]:
-        raise HTTPException(status_code=400, detail="Skill is not in a failed state.")
+    if skill.verification_status not in ["failed", "re_verifying", "unverified"]:
+        raise HTTPException(status_code=400, detail="Skill is already verified.")
         
     if skill.cooldown_until and skill.cooldown_until > datetime.now(timezone.utc):
         return ReVerifyResponse(allowed=False, cooldown_until=skill.cooldown_until)
