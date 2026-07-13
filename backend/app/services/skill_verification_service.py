@@ -159,7 +159,7 @@ class SkillVerificationService:
             "Return ONLY valid JSON, no markdown formatting blocks around it."
         )
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.3, "responseMimeType": "application/json"},
@@ -169,11 +169,11 @@ class SkillVerificationService:
             "x-goog-api-key": api_key,
         }
 
-        max_retries = 3
+        max_retries = 5
         resp = None
         for attempt_num in range(max_retries + 1):
             try:
-                async with httpx.AsyncClient(timeout=30) as client:
+                async with httpx.AsyncClient(timeout=60) as client:
                     resp = await client.post(url, headers=headers, json=payload)
                     
                 if resp.status_code == 429 and attempt_num < max_retries:
