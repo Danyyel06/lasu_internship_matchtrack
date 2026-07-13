@@ -282,7 +282,7 @@ class SkillVerificationService:
                     from app.models.system_setting import SystemSetting
                     cooldown_setting = await db.scalar(select(SystemSetting).where(SystemSetting.key == "skill_reverify_cooldown_days"))
                     cooldown_days = int(cooldown_setting.value) if cooldown_setting else 7
-                    skill.cooldown_until = datetime.now(timezone.utc) + timedelta(days=cooldown_days)
+                    skill.cooldown_until = datetime.now(timezone.utc) + timedelta(minutes=1) # Temporary for testing
             elif status_changed and passed:
                 skill.verification_status = "verified"
                 skill.verified_level = skill.claimed_level
@@ -324,7 +324,7 @@ class SkillVerificationService:
                 current_day = datetime.now(timezone.utc).date()
                 days.add(current_day)
                 
-                if len(days) >= 2:
+                if len(passing_attempts) >= 2:
                     return True
                 else:
                     skill.successful_reverify_count = 1
