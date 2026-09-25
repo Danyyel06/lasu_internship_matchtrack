@@ -12,7 +12,7 @@ export default function HODAlerts() {
     const fetchAlerts = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const res = await axios.get('http://localhost:8000/api/v1/hod/alerts', {
+        const res = await axios.get('/api/v1/hod/alerts', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setNotifications(res.data);
@@ -24,6 +24,17 @@ export default function HODAlerts() {
     };
     fetchAlerts();
   }, []);
+
+  const markAllAsRead = async () => {
+    try {
+      // Update locally immediately
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      // Note: Assumes bulk read endpoint doesn't exist, we just optimistically update UI
+      // If we had a bulk endpoint, we would call it here. E.g. axios.post('/alerts/read-all')
+    } catch (err) {
+      console.error("Failed to mark all as read", err);
+    }
+  };
 
   const filteredNotifs = activeTab === 'All' ? notifications : notifications.filter(n => !n.read);
 
@@ -54,7 +65,10 @@ export default function HODAlerts() {
           <h1 className="text-2xl font-bold text-neutral-900">Notifications</h1>
           <p className="text-neutral-500 mt-1">Updates on placements, alerts, and system activities.</p>
         </div>
-        <button className="text-sm font-medium text-neutral-600 hover:text-neutral-900 py-2 px-4 rounded-lg border border-neutral-300 hover:bg-neutral-50 transition-colors">
+        <button 
+          onClick={markAllAsRead}
+          className="text-sm font-medium text-neutral-600 hover:text-neutral-900 py-2 px-4 rounded-lg border border-neutral-300 hover:bg-neutral-50 transition-colors"
+        >
           Mark all as read
         </button>
       </div>

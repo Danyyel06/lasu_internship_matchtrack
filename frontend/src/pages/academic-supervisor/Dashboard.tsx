@@ -11,10 +11,10 @@ export default function AcadSupDashboard() {
       try {
         const token = localStorage.getItem('access_token');
         const [studentRes, profileRes] = await Promise.all([
-          axios.get('http://localhost:8000/api/v1/academic-supervisors/students', {
+          axios.get('/api/v1/academic-supervisors/students', {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          axios.get('http://localhost:8000/api/v1/academic-supervisors/profile', {
+          axios.get('/api/v1/academic-supervisors/profile', {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);
@@ -27,8 +27,12 @@ export default function AcadSupDashboard() {
     fetchData();
   }, []);
 
-  const submittedCount = students.filter(s => s.log_status === 'submitted').length;
-  const overdueCount = students.filter(s => s.consecutiveMissing && s.consecutiveMissing >= 2).length;
+  const submittedCount = students.filter(s => s.logStatus === 'submitted').length;
+  // A student is overdue if their log is still pending and we are past Wednesday of the current week
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun,1=Mon,...,6=Sat
+  const pastWednesday = dayOfWeek >= 3; // Wed or later
+  const overdueCount = students.filter(s => s.logStatus === 'pending' && pastWednesday).length;
   
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
@@ -72,60 +76,63 @@ export default function AcadSupDashboard() {
           <h2 className="font-semibold text-neutral-900">Your Students</h2>
           <Link to="/academic-supervisor/log-wall" className="text-sm font-semibold text-blue-600 hover:underline">View Log Wall →</Link>
         </div>
-        <table className="w-full text-left text-sm">
-          <thead className="bg-white border-b border-neutral-100 text-neutral-500">
-            <tr>
-              <th className="px-6 py-3 font-medium">Student</th>
-              <th className="px-6 py-3 font-medium">Placement</th>
-              <th className="px-6 py-3 font-medium">Current Week</th>
-              <th className="px-6 py-3 font-medium">Log Status</th>
-              <th className="px-6 py-3 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-neutral-100">
-            {students.length === 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-white border-b border-neutral-100 text-neutral-500">
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-neutral-500">
-                  No students assigned yet.
-                </td>
+                <th className="px-6 py-3 font-medium">Student</th>
+                <th className="px-6 py-3 font-medium">Placement</th>
+                <th className="px-6 py-3 font-medium">Current Week</th>
+                <th className="px-6 py-3 font-medium">Log Status</th>
+                <th className="px-6 py-3 font-medium text-right">Actions</th>
               </tr>
-            ) : students.map(student => (
-              <tr key={student.id} className={`hover:bg-neutral-50 transition-colors ${student.consecutiveMissing && student.consecutiveMissing >= 2 ? 'border-l-4 border-l-danger bg-danger-50 hover:bg-danger-50' : ''}`}>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-xs">
-                      {student.name.charAt(0)}
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {students.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-neutral-500">
+                    No students assigned yet.
+                  </td>
+                </tr>
+              ) : students.map(student => (
+                <tr key={student.id} className={`hover:bg-neutral-50 transition-colors ${student.logStatus === 'pending' && pastWednesday ? 'border-l-4 border-l-danger bg-danger-50 hover:bg-danger-50' : ''}`}>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-xs">
+                        {student.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-medium text-neutral-900">{student.name}</p>
+                        {student.logStatus === 'pending' && pastWednesday && (
+                          <p className="text-xs text-danger flex items-center gap-1 mt-0.5">
+                            <span>🚩</span> Log overdue
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-neutral-900">{student.name}</p>
-                      {student.consecutiveMissing && student.consecutiveMissing >= 2 && (
-                        <p className="text-xs text-danger flex items-center gap-1 mt-0.5">
-                          <span>🚩</span> {student.consecutiveMissing} periods missing
-                        </p>
-                      )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <p className="font-medium text-neutral-900">{student.company}</p>
+                    <p className="text-neutral-500 text-xs">{student.role}</p>
+                  </td>
+                  <td className="px-6 py-4 text-neutral-600">Week {student.current_week || '-'}</td>
+                  <td className="px-6 py-4">
+                    {student.logStatus === 'submitted' && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-success-50 text-success-dark">Submitted</span>}
+                    {student.logStatus === 'in_progress' && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">In Progress</span>}
+                    {student.logStatus === 'pending' && !pastWednesday && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">Pending</span>}
+                    {student.logStatus === 'pending' && pastWednesday && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-danger-50 text-danger">Overdue</span>}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      <Link to={`/academic-supervisor/log-wall`} className="text-blue-600 hover:text-blue-800 font-medium">Log Wall</Link>
+                      <Link to={`/academic-supervisor/student/${student.id}`} className="text-neutral-500 hover:text-neutral-700 font-medium">Profile</Link>
                     </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <p className="font-medium text-neutral-900">{student.company}</p>
-                  <p className="text-neutral-500 text-xs">{student.role}</p>
-                </td>
-                <td className="px-6 py-4 text-neutral-600">Week {student.current_week || 4}</td>
-                <td className="px-6 py-4">
-                  {student.log_status === 'submitted' && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-success-50 text-success-dark">Submitted</span>}
-                  {student.log_status === 'pending' && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">Pending</span>}
-                  {(!student.log_status || student.log_status === 'missing') && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-danger-50 text-danger">Overdue</span>}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-3">
-                    <Link to={`/academic-supervisor/log-wall`} className="text-blue-600 hover:text-blue-800 font-medium">Log Wall</Link>
-                    <Link to={`/academic-supervisor/student/${student.id}`} className="text-neutral-500 hover:text-neutral-700 font-medium">Profile</Link>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

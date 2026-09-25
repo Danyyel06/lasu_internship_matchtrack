@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import axios from 'axios';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function SuperAdminReports() {
@@ -8,43 +11,83 @@ export default function SuperAdminReports() {
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [isGenerating, setIsGenerating] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
-
-  // Dummy data
-  const chartData = [
-    { name: 'Science', Placed: 120, Unplaced: 30 },
-    { name: 'Engineering', Placed: 98, Unplaced: 12 },
-    { name: 'Management', Placed: 86, Unplaced: 40 },
-    { name: 'Arts', Placed: 45, Unplaced: 25 },
-    { name: 'Law', Placed: 70, Unplaced: 10 },
-  ];
+  const chartRef = useRef<HTMLDivElement>(null);
 
   const generateReport = async () => {
     setIsGenerating(true);
     try {
       const token = localStorage.getItem('access_token');
-      // Dummy endpoint hit
-      await axios.get(`http://localhost:8000/api/v1/admin/reports`, {
+      const res = await axios.get(`/api/v1/admin/reports`, {
         params: { type: reportType, faculty: facultyFilter, department: departmentFilter },
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setTimeout(() => {
-        setReportData({
-          type: reportType,
-          generatedAt: new Date().toLocaleString(),
-          filters: { faculty: facultyFilter, department: departmentFilter },
-          data: chartData
-        });
-        setIsGenerating(false);
-      }, 800);
+      setReportData({
+        type: res.data.report_type,
+        generatedAt: new Date().toLocaleString(),
+        filters: { faculty: facultyFilter, department: departmentFilter },
+        data: res.data.data
+      });
+      setIsGenerating(false);
     } catch (error) {
       console.error("Failed to generate report", error);
       setIsGenerating(false);
     }
   };
 
-  const handleExport = (format: 'pdf' | 'csv') => {
-    alert(`Exporting as ${format.toUpperCase()}...`);
+  const handleExport = async (format: 'pdf' | 'csv') => {
+    if (format === 'csv' && reportData?.data?.length > 0) {
+      const headers = Object.keys(reportData.data[0]).join(',');
+      const rows = reportData.data.map((row: any) => Object.values(row).join(','));
+      const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + rows.join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `report_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (format === 'pdf' && reportData?.data?.length > 0) {
+      const doc = new jsPDF();
+      
+      doc.setFontSize(16);
+      doc.text(reportData.type, 14, 15);
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Generated: ${reportData.generatedAt} • Faculty: ${reportData.filters.faculty}`, 14, 22);
+
+      let finalY = 30;
+
+      if (chartRef.current) {
+        try {
+          const canvas = await html2canvas(chartRef.current, { scale: 2 });
+          const imgData = canvas.toDataURL('image/png');
+          const pdfWidth = doc.internal.pageSize.getWidth();
+          const imgWidth = pdfWidth - 28;
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          
+          doc.addImage(imgData, 'PNG', 14, finalY, imgWidth, imgHeight);
+          finalY += imgHeight + 10;
+        } catch (error) {
+          console.error("Failed to capture chart", error);
+        }
+      }
+
+      const headers = Object.keys(reportData.data[0]);
+      const data = reportData.data.map((row: any) => Object.values(row));
+
+      autoTable(doc, {
+        head: [headers],
+        body: data,
+        startY: finalY,
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [37, 99, 235] }
+      });
+
+      doc.save(`report_${Date.now()}.pdf`);
+    } else {
+      alert("No data available to export.");
+    }
   };
 
   return (
@@ -141,23 +184,28 @@ export default function SuperAdminReports() {
               </div>
               <div className="flex-1 p-6 overflow-y-auto">
                 
-                {/* Summary Cards */}
                 <div className="grid grid-cols-3 gap-4 mb-8">
                   <div className="bg-green-50 p-4 rounded-xl border border-green-100">
                     <p className="text-xs font-bold text-green-700 uppercase mb-1">Total Placed</p>
-                    <p className="text-2xl font-black text-green-900">419</p>
+                    <p className="text-2xl font-black text-green-900">{reportData.data.reduce((sum: number, item: any) => sum + (item.Placed || 0), 0)}</p>
                   </div>
                   <div className="bg-red-50 p-4 rounded-xl border border-red-100">
                     <p className="text-xs font-bold text-red-700 uppercase mb-1">Total Unplaced</p>
-                    <p className="text-2xl font-black text-red-900">107</p>
+                    <p className="text-2xl font-black text-red-900">{reportData.data.reduce((sum: number, item: any) => sum + (item.Unplaced || 0), 0)}</p>
                   </div>
                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                     <p className="text-xs font-bold text-blue-700 uppercase mb-1">Overall Placement Rate</p>
-                    <p className="text-2xl font-black text-blue-900">79.6%</p>
+                    <p className="text-2xl font-black text-blue-900">
+                      {reportData.data.length > 0 && reportData.data[0].Placed !== undefined ? 
+                        ((reportData.data.reduce((sum: number, item: any) => sum + (item.Placed || 0), 0) / 
+                        Math.max(1, reportData.data.reduce((sum: number, item: any) => sum + (item.Placed || 0) + (item.Unplaced || 0), 0))) * 100).toFixed(1) + '%' 
+                        : 'N/A'
+                      }
+                    </p>
                   </div>
                 </div>
 
-                <div className="h-80 w-full mb-8">
+                <div className="h-80 w-full mb-8" ref={chartRef}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={reportData.data} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e5e5" />
@@ -165,8 +213,14 @@ export default function SuperAdminReports() {
                       <YAxis tick={{fontSize: 12}} tickLine={false} axisLine={false} />
                       <Tooltip cursor={{fill: '#f5f5f5'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
                       <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '10px'}} />
-                      <Bar dataKey="Placed" stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} />
-                      <Bar dataKey="Unplaced" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                      {reportType === 'Placement by Faculty' ? (
+                        <>
+                          <Bar dataKey="Placed" stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} />
+                          <Bar dataKey="Unplaced" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                        </>
+                      ) : (
+                        <Bar dataKey="Count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      )}
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

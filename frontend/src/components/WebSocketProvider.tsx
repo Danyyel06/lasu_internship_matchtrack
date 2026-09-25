@@ -21,8 +21,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem('access_token');
     if (!token) return;
 
-    // Use ws:// for unencrypted local dev
-    const ws = new WebSocket(`ws://localhost:8000/api/v1/ws/stream?token=${token}`);
+    // Dynamic WebSocket host for local LAN and mobile testing
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.hostname}:8000`;
+    const ws = new WebSocket(`${wsHost}/api/v1/ws/stream?token=${token}`);
 
     ws.onopen = () => {
       console.log('WebSocket Connected');

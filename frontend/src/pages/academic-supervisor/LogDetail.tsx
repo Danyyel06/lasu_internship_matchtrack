@@ -13,10 +13,6 @@ interface QuizQuestion {
   options: string[];
 }
 
-/**
- * LogDetailData matches the backend LogDetailResponse (camelCase).
- * Backend endpoint: GET /api/v1/academic-supervisors/log-wall/{student_id}/week/{week_id}
- */
 interface LogDetailData {
   studentId: number;
   studentName: string;
@@ -39,86 +35,81 @@ interface LogDetailProps {
   onClose: () => void;
 }
 
-// ─── PhotoCarousel ────────────────────────────────────────────────────────────
-// A small self-contained carousel used in the drill-down modal.
-// Extracted as a named component so useState/useRef obey the Rules of Hooks.
-interface Slide { url: string; label: string; color: 'blue' | 'violet'; }
+// ─── Individual check-in slide ─────────────────────────────────────────────────
+interface SlideData {
+  label: string;
+  color: 'blue' | 'violet';
+  photoUrl: string | null;
+  submittedAt: string | null;
+  content: CheckInContent | null;
+}
 
-function PhotoCarousel({ slides }: { slides: Slide[] }) {
-  const [idx, setIdx] = useState(0);
-  const touchStartX = useRef<number | null>(null);
-
-  if (slides.length === 0) return null;
-
-  const prev = () => setIdx(i => (i - 1 + slides.length) % slides.length);
-  const next = () => setIdx(i => (i + 1) % slides.length);
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const delta = e.changedTouches[0].clientX - touchStartX.current;
-    if (delta < -40) next();
-    else if (delta > 40) prev();
-    touchStartX.current = null;
-  };
+function CheckInSlide({ slide }: { slide: SlideData }) {
+  const accent = slide.color === 'blue' ? 'blue' : 'violet';
+  const accentBg = accent === 'blue' ? 'bg-blue-600' : 'bg-violet-600';
+  const accentText = accent === 'blue' ? 'text-blue-700' : 'text-violet-700';
+  const accentLight = accent === 'blue' ? 'bg-blue-50' : 'bg-violet-50';
 
   return (
-    <div>
-      {/* Slide frame */}
-      <div
-        className="relative rounded-xl overflow-hidden border border-neutral-200 bg-neutral-100"
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        <img
-          key={slides[idx].url}
-          src={`http://localhost:8000${slides[idx].url}`}
-          alt={`${slides[idx].label} workplace`}
-          className="w-full max-h-56 object-cover transition-opacity duration-300"
-        />
-        {/* Day label badge */}
-        <div className={`absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-bold text-white shadow ${
-          slides[idx].color === 'blue' ? 'bg-blue-600' : 'bg-violet-600'
-        }`}>
-          {slides[idx].label}
+    <div className="flex flex-col h-full min-h-0">
+      {/* Photo */}
+      {slide.photoUrl ? (
+        <div className="relative shrink-0">
+          <img
+            src={slide.photoUrl}
+            alt={`${slide.label} workplace photo`}
+            className="w-full object-cover"
+            style={{ maxHeight: '200px', minHeight: '140px' }}
+          />
+          {/* Day badge */}
+          <div className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold text-white shadow ${accentBg}`}>
+            {slide.label}
+          </div>
         </div>
-        {/* Arrow buttons — only if more than one slide */}
-        {slides.length > 1 && (
-          <>
-            <button
-              onClick={prev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center text-sm transition-colors"
-              aria-label="Previous photo"
-            >
-              ‹
-            </button>
-            <button
-              onClick={next}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center text-sm transition-colors"
-              aria-label="Next photo"
-            >
-              ›
-            </button>
-          </>
-        )}
-      </div>
-      {/* Dot indicators */}
-      {slides.length > 1 && (
-        <div className="flex justify-center gap-1.5 mt-2">
-          {slides.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setIdx(i)}
-              className={`w-2 h-2 rounded-full transition-colors ${
-                i === idx ? 'bg-neutral-700' : 'bg-neutral-300'
-              }`}
-              aria-label={`Go to slide ${i + 1}`}
-            />
-          ))}
+      ) : (
+        // No photo placeholder
+        <div className={`shrink-0 h-28 flex flex-col items-center justify-center ${accentLight}`}>
+          <span className="text-3xl mb-1">📋</span>
+          <p className={`text-xs font-bold ${accentText}`}>{slide.label} — No photo</p>
         </div>
       )}
+
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        {/* Timestamp pill */}
+        {slide.submittedAt && (
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${accentLight} ${accentText} text-xs font-semibold`}>
+            📅 Submitted {new Date(slide.submittedAt).toLocaleDateString('en-NG', {
+              weekday: 'short', day: 'numeric', month: 'short',
+              hour: '2-digit', minute: '2-digit'
+            })}
+          </span>
+        )}
+
+        {/* Fields */}
+        {slide.content ? (
+          <div className="space-y-4">
+            <Field label="Focus Area" value={slide.content.focus_area} accent={accentText} />
+            <Field label="Core Action" value={slide.content.core_action} accent={accentText} />
+            <Field label="The Blocker" value={slide.content.the_blocker} accent={accentText} />
+            <Field label="The Takeaway" value={slide.content.the_takeaway} accent={accentText} />
+          </div>
+        ) : (
+          <p className="text-sm text-neutral-400 italic">No report content available for this check-in.</p>
+        )}
+
+        {/* Bottom breathing room */}
+        <div className="h-2" />
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, value, accent }: { label: string; value: string; accent: string }) {
+  return (
+    <div>
+      <p className={`text-[11px] font-bold uppercase tracking-wider mb-1 ${accent}`}>{label}</p>
+      <p className="text-sm text-neutral-700 leading-relaxed">{value}</p>
     </div>
   );
 }
@@ -128,19 +119,19 @@ function PhotoCarousel({ slides }: { slides: Slide[] }) {
 export default function LogDetail({ studentId, weekId, onClose }: LogDetailProps) {
   const [data, setData] = useState<LogDetailData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [slideIdx, setSlideIdx] = useState(0);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     const fetchDetail = async () => {
       try {
         const token = localStorage.getItem('access_token');
         const res = await axios.get(
-          `http://localhost:8000/api/v1/academic-supervisors/log-wall/${studentId}/week/${weekId}`,
+          `/api/v1/academic-supervisors/log-wall/${studentId}/week/${weekId}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        const d: LogDetailData = res.data;
-        setData(d);
-        setActivePhoto(d.wedPhotoUrl ? 'wed' : 'sat');
+        setData(res.data as LogDetailData);
       } catch {
         console.error('Failed to load log detail');
       } finally {
@@ -162,12 +153,46 @@ export default function LogDetail({ studentId, weekId, onClose }: LogDetailProps
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const Field = ({ label, value }: { label: string; value: string }) => (
-    <div>
-      <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-sm text-neutral-700 leading-relaxed">{value}</p>
-    </div>
-  );
+  // Build slides from data — only include slides that have something to show
+  const slides: SlideData[] = [];
+  if (data) {
+    if (data.wedContent || data.wedPhotoUrl || data.wedSubmittedAt) {
+      slides.push({
+        label: 'Wednesday',
+        color: 'blue',
+        photoUrl: data.wedPhotoUrl,
+        submittedAt: data.wedSubmittedAt,
+        content: data.wedContent,
+      });
+    }
+    if (data.satContent || data.satPhotoUrl || data.satSubmittedAt) {
+      slides.push({
+        label: 'Saturday',
+        color: 'violet',
+        photoUrl: data.satPhotoUrl,
+        submittedAt: data.satSubmittedAt,
+        content: data.satContent,
+      });
+    }
+  }
+
+  const totalSlides = slides.length;
+  const goNext = () => setSlideIdx(i => Math.min(i + 1, totalSlides - 1));
+  const goPrev = () => setSlideIdx(i => Math.max(i - 1, 0));
+
+  // Touch/swipe on carousel
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const delta = e.changedTouches[0].clientX - touchStartX.current;
+    if (delta < -40) goNext();
+    else if (delta > 40) goPrev();
+    touchStartX.current = null;
+  };
+
+  const hasQuiz = data?.quizScore !== null && data?.quizScore !== undefined;
 
   return (
     <div
@@ -175,9 +200,11 @@ export default function LogDetail({ studentId, weekId, onClose }: LogDetailProps
       onClick={handleBackdrop}
       className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
     >
-      <div className="bg-white w-full md:max-w-2xl md:rounded-2xl rounded-t-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-neutral-200 flex items-start justify-between shrink-0">
+      <div className="bg-white w-full md:max-w-lg md:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col overflow-hidden"
+        style={{ maxHeight: '92vh' }}
+      >
+        {/* ── Header ── */}
+        <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between shrink-0">
           <div>
             {loading ? (
               <div className="h-5 w-40 bg-neutral-100 rounded animate-pulse" />
@@ -190,133 +217,154 @@ export default function LogDetail({ studentId, weekId, onClose }: LogDetailProps
           </div>
           <button
             onClick={onClose}
-            className="ml-4 p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 transition-colors"
             aria-label="Close"
           >
             ✕
           </button>
         </div>
 
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 p-6 space-y-6">
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => <div key={i} className="h-4 bg-neutral-100 rounded animate-pulse" />)}
-            </div>
-          ) : data ? (
-            <>
-              {/* ─── Photo Carousel ─── */}
-              {(data.wedPhotoUrl || data.satPhotoUrl) && (
-                <PhotoCarousel
-                  slides={[
-                    ...(data.wedPhotoUrl ? [{ url: data.wedPhotoUrl, label: 'Wednesday', color: 'blue'   as const }] : []),
-                    ...(data.satPhotoUrl ? [{ url: data.satPhotoUrl, label: 'Saturday',  color: 'violet' as const }] : []),
-                  ]}
-                />
-              )}
-
-              {/* Submission timestamps */}
-              <div className="flex flex-wrap gap-3">
-                {data.wedSubmittedAt && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
-                    📝 Wed submitted {new Date(data.wedSubmittedAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </span>
+        {loading ? (
+          <div className="p-6 space-y-3">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-4 bg-neutral-100 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : !data ? (
+          <div className="p-6 text-sm text-neutral-500">Could not load log details.</div>
+        ) : (
+          <>
+            {/* ── Carousel area (scrollable per slide) ── */}
+            {totalSlides > 0 ? (
+              <div
+                className="flex-1 min-h-0 relative flex flex-col"
+                onTouchStart={onTouchStart}
+                onTouchEnd={onTouchEnd}
+              >
+                {/* Slide indicator pills */}
+                {totalSlides > 1 && (
+                  <div className="flex items-center justify-center gap-2 pt-3 pb-1 shrink-0">
+                    {slides.map((s, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setSlideIdx(i)}
+                        className={`px-3 py-0.5 rounded-full text-[11px] font-bold border transition-all ${
+                          i === slideIdx
+                            ? s.color === 'blue'
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-violet-600 text-white border-violet-600'
+                            : 'bg-white text-neutral-400 border-neutral-200'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
                 )}
-                {data.satSubmittedAt && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-50 text-violet-700 text-xs font-semibold">
-                    📸 Sat submitted {new Date(data.satSubmittedAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </span>
+
+                {/* Slide content */}
+                <div className="flex-1 min-h-0 overflow-hidden relative">
+                  <CheckInSlide slide={slides[slideIdx]} />
+                </div>
+
+                {/* Prev / Next arrows — only if more than 1 slide */}
+                {totalSlides > 1 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-100 shrink-0 bg-white">
+                    <button
+                      onClick={goPrev}
+                      disabled={slideIdx === 0}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                        slideIdx === 0
+                          ? 'text-neutral-300 cursor-not-allowed'
+                          : 'text-blue-600 hover:bg-blue-50'
+                      }`}
+                    >
+                      ← {slideIdx > 0 ? slides[slideIdx - 1].label : 'Previous'}
+                    </button>
+
+                    <span className="text-xs text-neutral-400 font-medium">
+                      {slideIdx + 1} / {totalSlides}
+                    </span>
+
+                    <button
+                      onClick={goNext}
+                      disabled={slideIdx === totalSlides - 1}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                        slideIdx === totalSlides - 1
+                          ? 'text-neutral-300 cursor-not-allowed'
+                          : 'text-violet-600 hover:bg-violet-50'
+                      }`}
+                    >
+                      {slideIdx < totalSlides - 1 ? slides[slideIdx + 1].label : 'Next'} →
+                    </button>
+                  </div>
                 )}
               </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">
+                No check-in content available.
+              </div>
+            )}
 
-              {/* Wednesday Content */}
-              {data.wedContent && (
-                <div>
-                  <h3 className="text-sm font-bold text-blue-700 mb-3">Wednesday Check-in</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Focus Area" value={data.wedContent.focus_area} />
-                    <Field label="Core Action" value={data.wedContent.core_action} />
-                    <Field label="Blocker" value={data.wedContent.the_blocker} />
-                    <Field label="Takeaway" value={data.wedContent.the_takeaway} />
+            {/* ── Quiz section — static at bottom ── */}
+            {hasQuiz && (
+              <div className="shrink-0 border-t border-neutral-200 bg-neutral-50 px-5 py-4 space-y-3">
+                {/* Score banner */}
+                <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${
+                  data.quizPassed
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-red-50 border-red-200'
+                }`}>
+                  <span className="text-xl">🧠</span>
+                  <div>
+                    <p className="text-xs font-bold text-neutral-600">AI Scenario Quiz</p>
+                    <p className={`text-sm font-semibold ${data.quizPassed ? 'text-green-700' : 'text-red-700'}`}>
+                      {data.quizScore}/5 — {data.quizPassed ? 'Passed ✓' : 'Failed ✗'}
+                    </p>
                   </div>
                 </div>
-              )}
 
-              {/* Saturday Content */}
-              {data.satContent && (
-                <div>
-                  <h3 className="text-sm font-bold text-violet-700 mb-3">Saturday Check-in</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Focus Area" value={data.satContent.focus_area} />
-                    <Field label="Core Action" value={data.satContent.core_action} />
-                    <Field label="Blocker" value={data.satContent.the_blocker} />
-                    <Field label="Takeaway" value={data.satContent.the_takeaway} />
+                {/* Q&A accordion */}
+                {data.quizQuestions && data.quizQuestions.length > 0 && (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Quiz Review</p>
+                    {data.quizQuestions.map((q, i) => {
+                      const studentAns = data.quizStudentAnswers?.[i];
+                      return (
+                        <details key={i} className="border border-neutral-200 rounded-xl overflow-hidden">
+                          <summary className="flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none list-none bg-white hover:bg-neutral-50 transition-colors">
+                            <span className="shrink-0 text-xs font-bold text-neutral-400">Q{i + 1}</span>
+                            <p className="text-xs text-neutral-800 font-medium line-clamp-1">{q.question}</p>
+                          </summary>
+                          <div className="px-3 py-2 space-y-1 bg-neutral-50">
+                            {q.options.map((opt, j) => (
+                              <div
+                                key={j}
+                                className={`px-3 py-1.5 rounded-lg text-xs ${
+                                  j === studentAns
+                                    ? 'bg-blue-50 text-blue-800 font-semibold border border-blue-200'
+                                    : 'text-neutral-500'
+                                }`}
+                              >
+                                {j === studentAns && '→ '}{opt}
+                                {j === studentAns && <span className="ml-1 text-blue-400">(student's answer)</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      );
+                    })}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+            )}
 
-              {/* AI Quiz Results */}
-              {data.quizScore !== null && (
-                <div>
-                  <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border mb-3 ${
-                    data.quizPassed
-                      ? 'bg-success-50 border-success-base'
-                      : 'bg-danger-50 border-danger-base'
-                  }`}>
-                    <span className="text-lg">🧠</span>
-                    <div>
-                      <p className="text-xs font-bold text-neutral-600">AI Scenario Quiz</p>
-                      <p className={`text-sm font-semibold ${data.quizPassed ? 'text-success-dark' : 'text-danger-dark'}`}>
-                        {data.quizScore}/5 — {data.quizPassed ? 'Passed' : 'Failed'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Q&A Accordion — visible to Academic Supervisor (read-only) */}
-                  {data.quizQuestions && data.quizQuestions.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Quiz Review</p>
-                      {data.quizQuestions.map((q, i) => {
-                        const studentAns = data.quizStudentAnswers?.[i];
-                        // We don't have correct_answers in this endpoint, so just show the student's selection
-                        return (
-                          <details key={i} className="group border border-neutral-200 rounded-xl overflow-hidden">
-                            <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none list-none bg-neutral-50 hover:bg-neutral-100 transition-colors">
-                              <span className="flex-shrink-0 text-sm font-bold text-neutral-500">Q{i + 1}</span>
-                              <p className="text-sm text-neutral-800 font-medium line-clamp-1">{q.question}</p>
-                            </summary>
-                            <div className="px-4 py-3 space-y-1.5 bg-white">
-                              {q.options.map((opt, j) => (
-                                <div
-                                  key={j}
-                                  className={`px-3 py-2 rounded-lg text-sm ${
-                                    j === studentAns
-                                      ? 'bg-blue-50 text-blue-800 font-medium border border-blue-200'
-                                      : 'text-neutral-600'
-                                  }`}
-                                >
-                                  {j === studentAns && '→ '}{opt}
-                                  {j === studentAns && <span className="ml-2 text-xs text-blue-500">(student's answer)</span>}
-                                </div>
-                              ))}
-                            </div>
-                          </details>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="text-neutral-500 text-sm">Could not load log details.</p>
-          )}
-        </div>
-
-        {/* Footer — read-only, no actions for Academic Supervisor */}
-        <div className="px-6 py-4 border-t border-neutral-100 shrink-0">
-          <p className="text-xs text-neutral-400 text-center">Read-only view · Academic Supervisors cannot annotate individual check-ins</p>
-        </div>
+            {/* Footer */}
+            <div className="px-5 py-2.5 border-t border-neutral-100 shrink-0">
+              <p className="text-[10px] text-neutral-400 text-center">Read-only view · Academic Supervisors cannot annotate check-ins</p>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
 
 export default function OnboardingWizard() {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [submittedScore, setSubmittedScore] = useState<number>(0);
+  const [submittedTier, setSubmittedTier] = useState<string>('');
   const totalSteps = 8;
   const [firstName, setFirstName] = useState('');
   const [dbJobFamilies, setDbJobFamilies] = useState<any[]>([]);
@@ -23,79 +25,6 @@ export default function OnboardingWizard() {
     "Architecture and Built Environment": "🏗️",
     "Science and Research": "🔬",
     "Legal and Compliance": "⚖️"
-  };
-
-  const JOB_FAMILY_COURSES: Record<string, string[]> = {
-    "Software and Technology": [
-      'Introduction to Programming / Computer Science 101',
-      'Data Structures and Algorithms',
-      'Database Management Systems',
-      'Computer Networks and Communication',
-      'Software Engineering / System Analysis'
-    ],
-    "Engineering and Manufacturing": [
-      'Engineering Mathematics / Calculus',
-      'Mechanics of Materials / Thermodynamics',
-      'Engineering Drawing / CAD',
-      'Fluid Mechanics',
-      'Manufacturing Processes'
-    ],
-    "Business and Management": [
-      'Principles of Management',
-      'Business Economics / Microeconomics',
-      'Organizational Behavior',
-      'Business Communication',
-      'Marketing Principles'
-    ],
-    "Finance and Accounting": [
-      'Financial Accounting / Reporting',
-      'Managerial Accounting',
-      'Corporate Finance',
-      'Taxation Principles',
-      'Auditing and Assurance'
-    ],
-    "Health and Life Sciences": [
-      'Human Anatomy / Physiology',
-      'Biochemistry / Cell Biology',
-      'Public Health / Epidemiology',
-      'Pharmacology / Pathology',
-      'Biostatistics'
-    ],
-    "Media and Communications": [
-      'Introduction to Mass Communication',
-      'Journalism and News Writing',
-      'Public Relations / Advertising',
-      'Digital Media Production',
-      'Media Ethics and Law'
-    ],
-    "Education and Social Services": [
-      'Foundations of Education',
-      'Educational Psychology',
-      'Curriculum Development',
-      'Sociology / Social Problems',
-      'Counseling Principles'
-    ],
-    "Architecture and Built Environment": [
-      'Architectural Design / Drafting',
-      'Building Construction / Materials',
-      'History of Architecture',
-      'Structural Mechanics',
-      'Urban Planning Basics'
-    ],
-    "Science and Research": [
-      'General Chemistry / Physics',
-      'Laboratory Techniques and Safety',
-      'Research Methodology',
-      'Quantitative Analysis',
-      'Advanced Mathematics'
-    ],
-    "Legal and Compliance": [
-      'Introduction to Legal Systems',
-      'Contract Law / Tort Law',
-      'Constitutional Law',
-      'Commercial / Corporate Law',
-      'Ethics and Professional Conduct'
-    ]
   };
 
   useEffect(() => {
@@ -177,11 +106,6 @@ export default function OnboardingWizard() {
       const token = localStorage.getItem('access_token');
       
       const payload = {
-        matric_no: "NOT_USED_IN_UI",
-        faculty: "NOT_USED",
-        department: "NOT_USED",
-        level: 100,
-        cgpa: 0.0,
         job_family_id: formData.job_family,
         selected_sub_role_id: formData.sub_role,
         skills: [
@@ -199,10 +123,12 @@ export default function OnboardingWizard() {
         }
       };
 
-      await axios.post(`${API_BASE}/api/v1/students/onboarding`, payload, {
+      const response = await axios.post(`${API_BASE}/api/v1/students/onboarding`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      setSubmittedScore(Math.round(response.data.preliminary_fit_score || 0));
+      setSubmittedTier(response.data.current_tier || 'T2');
       setIsSuccess(true);
     } catch (err: any) {
       console.error(err);
@@ -242,7 +168,7 @@ export default function OnboardingWizard() {
               You're in the system, {firstName || 'Student'}!
             </h2>
             <p className="text-neutral-500 mb-10 leading-relaxed text-sm">
-              Your profile has been submitted. Your initial Fit Score is <span className="font-bold text-slate-900">68/100</span> — placing you in the <span className="font-bold text-slate-900">Tier 1-2 range</span>. Check your LASU email for your diagnostic task within 48 hours.
+              Your profile has been submitted. Your initial Fit Score is <span className="font-bold text-slate-900">{submittedScore}/100</span> — placing you in the <span className="font-bold text-slate-900">{submittedTier === 'T1' ? 'Tier 1' : submittedTier === 'T2' ? 'Tier 2' : submittedTier === 'T3' ? 'Tier 3' : `Tier ${submittedTier}`} range</span>. Check your LASU email for your diagnostic task within 48 hours.
             </p>
 
             <div className="space-y-4 mb-10 text-left">
@@ -265,12 +191,20 @@ export default function OnboardingWizard() {
               </div>
             </div>
 
-            <button className="w-full bg-slate-900 text-white font-semibold py-4 rounded-xl flex items-center justify-center gap-2">
-              How does my Fit Score get calculated?
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
-            </button>
+            <div className="space-y-3">
+              <a href="/" className="w-full bg-white border border-neutral-300 text-slate-900 font-semibold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-neutral-50 transition-colors">
+                How is my Fit Score calculated?
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+                </svg>
+              </a>
+              <a href="/login" className="w-full bg-slate-900 text-white font-semibold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors">
+                Go to Dashboard
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -465,11 +399,9 @@ export default function OnboardingWizard() {
               <div className="space-y-4">
                 {(() => {
                   const family = dbJobFamilies.find(f => f.id === formData.job_family);
-                  const courses = family && JOB_FAMILY_COURSES[family.name] 
-                    ? JOB_FAMILY_COURSES[family.name] 
-                    : ['Introduction to Programming / Computer Science 101', 'Data Structures and Algorithms', 'Database Management Systems', 'Computer Networks and Communication', 'Software Engineering / System Analysis'];
+                  const courses = family?.coursework_options || [];
                   
-                  return courses.map(course => (
+                  return courses.map((course: string) => (
                     <label key={course} className="flex items-start gap-4 cursor-pointer group">
                       <div className="relative flex items-center justify-center w-5 h-5 mt-0.5 border border-neutral-300 rounded focus-within:ring-2 focus-within:ring-slate-900">
                         <input 

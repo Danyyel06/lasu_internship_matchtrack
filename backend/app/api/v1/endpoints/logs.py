@@ -17,6 +17,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
 from app.dependencies import require_role
@@ -254,6 +255,48 @@ async def submit_saturday(
     return {"message": "Saturday check-in submitted", "weekly_log_id": log.id, "week_number": week_number}
 
 
+# ── 3b. Retry Quiz Generation ─────────────────────────────────────────────────
+
+@router.post("/retry-quiz")
+async def retry_quiz_generation(
+    current_user: User = Depends(require_role(UserRole.STUDENT)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Re-trigger AI quiz generation for the current week's log.
+    Only works if Saturday has been submitted but the quiz is not yet available.
+    """
+    application = await _get_student_accepted_application(current_user, db)
+    week_number = _current_week_number()
+
+    log_res = await db.execute(
+        select(WeeklyLog)
+        .options(selectinload(WeeklyLog.quiz_attempt))
+        .where(
+            WeeklyLog.application_id == application.id,
+            WeeklyLog.week_number == week_number,
+        )
+    )
+    log = log_res.scalar_one_or_none()
+
+    if not log or not log.sat_submitted_at:
+        raise HTTPException(status_code=400, detail="No Saturday submission found for this week.")
+
+    if log.quiz_attempt and log.quiz_attempt.questions:
+        return {"status": "already_generated", "message": "Quiz is already available."}
+
+    # Re-trigger generation
+    try:
+        from app.services.quiz_service import AIQuizService
+        attempt = await AIQuizService.generate_and_save(log_id=log.id, db=db)
+        if attempt and attempt.questions:
+            return {"status": "generated", "message": "Quiz generated successfully."}
+        else:
+            return {"status": "failed", "message": "Quiz generation failed. Please try again in a moment."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Quiz generation error: {str(e)}")
+
+
 # ── 4. Current Week Status ────────────────────────────────────────────────────
 
 @router.get("/current-week", response_model=CurrentWeekStatusResponse)
@@ -266,13 +309,18 @@ async def get_current_week_status(
     Status values:
       wed_status / sat_status: "not_started" | "submitted"
       sat_status also: "locked" (when Wednesday not yet submitted)
-      quiz_status: "unavailable" | "available" | "completed"
+      quiz_status: "unavailable" | "available" | "completed" | "generating" | "failed"
     """
     application = await _get_student_accepted_application(current_user, db)
     week_number = _current_week_number()
 
     log_res = await db.execute(
-        select(WeeklyLog).where(
+        select(WeeklyLog)
+        .options(
+            selectinload(WeeklyLog.quiz_attempt),
+            selectinload(WeeklyLog.artifacts),
+        )
+        .where(
             WeeklyLog.application_id == application.id,
             WeeklyLog.week_number == week_number,
         )
@@ -314,8 +362,9 @@ async def get_current_week_status(
         elif log.quiz_attempt and log.quiz_attempt.questions:
             quiz_status = "available"
         else:
-            # Saturday submitted but quiz not yet generated (Gemini may still be processing)
-            quiz_status = "generating"
+            # Saturday submitted but quiz not generated — mark as failed so
+            # the frontend shows the retry button instead of polling forever
+            quiz_status = "failed"
 
     return CurrentWeekStatusResponse(
         week_number=week_number,
@@ -339,6 +388,10 @@ async def get_my_logs(
 
     logs_res = await db.execute(
         select(WeeklyLog)
+        .options(
+            selectinload(WeeklyLog.artifacts),
+            selectinload(WeeklyLog.quiz_attempt)
+        )
         .where(WeeklyLog.application_id == application.id)
         .order_by(WeeklyLog.week_number.desc())
     )
@@ -397,7 +450,9 @@ async def get_quiz_questions(
 
     # Verify the log belongs to this student
     log_res = await db.execute(
-        select(WeeklyLog).where(
+        select(WeeklyLog)
+        .options(selectinload(WeeklyLog.quiz_attempt))
+        .where(
             WeeklyLog.id == log_id,
             WeeklyLog.application_id == application.id,
         )
@@ -454,7 +509,9 @@ async def submit_quiz(
     application = await _get_student_accepted_application(current_user, db)
 
     log_res = await db.execute(
-        select(WeeklyLog).where(
+        select(WeeklyLog)
+        .options(selectinload(WeeklyLog.quiz_attempt))
+        .where(
             WeeklyLog.id == log_id,
             WeeklyLog.application_id == application.id,
         )

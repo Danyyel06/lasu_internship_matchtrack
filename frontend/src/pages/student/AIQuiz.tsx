@@ -48,6 +48,7 @@ export default function AIQuiz() {
   const [autoFailed, setAutoFailed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<QuizResult | null>(null);
+  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes in seconds
 
   // ── Load questions ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -55,7 +56,7 @@ export default function AIQuiz() {
       try {
         const token = localStorage.getItem('access_token');
         const res = await axios.get(
-          `http://localhost:8000/api/v1/logs/quiz/${numericLogId}/questions`,
+          `/api/v1/logs/quiz/${numericLogId}/questions`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const data = res.data;
@@ -86,7 +87,7 @@ export default function AIQuiz() {
     try {
       const token = localStorage.getItem('access_token');
       const res = await axios.post(
-        `http://localhost:8000/api/v1/logs/quiz/${numericLogId}/submit`,
+        `/api/v1/logs/quiz/${numericLogId}/submit`,
         {
           weekly_log_id: numericLogId,
           student_answers: [],
@@ -123,13 +124,12 @@ export default function AIQuiz() {
     };
   }, [quizStarted, handleAutoFail]);
 
-  // ── Normal submit ─────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
       const token = localStorage.getItem('access_token');
       const res = await axios.post(
-        `http://localhost:8000/api/v1/logs/quiz/${numericLogId}/submit`,
+        `/api/v1/logs/quiz/${numericLogId}/submit`,
         {
           weekly_log_id: numericLogId,
           student_answers: selectedAnswers,
@@ -144,6 +144,22 @@ export default function AIQuiz() {
       setSubmitting(false);
     }
   };
+
+  // ── Timer ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!quizStarted || autoFailed || result || submitting) return;
+    
+    if (timeLeft <= 0) {
+      handleSubmit();
+      return;
+    }
+
+    const timerId = setTimeout(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timerId);
+  }, [quizStarted, autoFailed, result, submitting, timeLeft]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSelectOption = (optionIndex: number) => {
     const next = [...selectedAnswers];
@@ -228,25 +244,23 @@ export default function AIQuiz() {
           <div className={`text-center mb-8 p-6 rounded-2xl ${
             result.failed_due_to_tab_switch
               ? 'bg-orange-50'
-              : result.passed ? 'bg-green-50' : 'bg-red-50'
+              : 'bg-blue-50'
           }`}>
             <div className="text-5xl mb-3">
-              {result.failed_due_to_tab_switch ? '⚡' : result.passed ? '🏆' : '😔'}
+              {result.failed_due_to_tab_switch ? '⚡' : '🧠'}
             </div>
             <h2 className="text-2xl font-bold text-neutral-900 mb-1">
               {result.failed_due_to_tab_switch
-                ? 'Auto-Failed'
-                : result.passed
-                ? 'Quiz Passed!'
-                : 'Quiz Failed'}
+                ? 'Auto-Submitted'
+                : 'Quiz Completed'}
             </h2>
             {result.failed_due_to_tab_switch ? (
               <p className="text-orange-700 text-sm font-medium">
-                You switched tabs or windows during the quiz. This attempt has been recorded as a failure.
+                You switched tabs or windows during the quiz. Your attempt was automatically submitted.
               </p>
             ) : (
-              <p className={`text-2xl font-bold mt-2 ${result.passed ? 'text-green-700' : 'text-red-700'}`}>
-                {result.score} / {questions.length || 5}
+              <p className="text-2xl font-bold mt-2 text-blue-700">
+                Score: {result.score} / {questions.length || 5}
               </p>
             )}
           </div>
@@ -364,13 +378,21 @@ export default function AIQuiz() {
             Question {currentIndex + 1} of {questions.length}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {questions.map((_, i) => (
-            <div key={i} className={`h-2 rounded-full transition-all ${
-              selectedAnswers[i] !== undefined ? 'w-6 bg-blue-500' :
-              i === currentIndex ? 'w-4 bg-neutral-400' : 'w-2 bg-neutral-700'
-            }`} />
-          ))}
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <p className="text-xs text-neutral-500 uppercase tracking-wider font-bold mb-1">Time Remaining</p>
+            <p className={`text-sm font-mono font-bold ${timeLeft <= 30 ? 'text-red-400 animate-pulse' : 'text-white'}`}>
+              {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {questions.map((_, i) => (
+              <div key={i} className={`h-2 rounded-full transition-all ${
+                selectedAnswers[i] !== undefined ? 'w-6 bg-blue-500' :
+                i === currentIndex ? 'w-4 bg-neutral-400' : 'w-2 bg-neutral-700'
+              }`} />
+            ))}
+          </div>
         </div>
       </div>
 

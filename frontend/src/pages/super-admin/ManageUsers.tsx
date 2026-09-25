@@ -5,6 +5,7 @@ export default function SuperAdminManageUsers() {
   const [users, setUsers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('All Roles');
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<any>(null);
@@ -26,11 +27,12 @@ export default function SuperAdminManageUsers() {
     const fetchUsers = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const res = await axios.get('http://localhost:8000/api/v1/admin/users', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        console.log("FETCH USERS RESPONSE:", res.data);
-        setUsers(res.data);
+        const [usersRes, meRes] = await Promise.all([
+          axios.get('/api/v1/admin/users', { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get('/api/v1/admin/me', { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+        setUsers(usersRes.data.items || usersRes.data);
+        setCurrentUserId(meRes.data.id);
       } catch (error: any) {
         console.error("Failed to fetch users", error);
       }
@@ -41,28 +43,32 @@ export default function SuperAdminManageUsers() {
   const handleSuspend = async (user: any) => {
     try {
       const token = localStorage.getItem('access_token');
-      // Dummy endpoint hit, logic handled in backend
-      await axios.patch(`http://localhost:8000/api/v1/admin/users/${user.id}`, 
-        { action: user.is_verified ? 'suspend' : 'reactivate' },
+      await axios.patch(`/api/v1/admin/users/${user.id}`, 
+        { action: user.is_active ? 'suspend' : 'reactivate' },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       // Optimistically update
-      setUsers(users.map(u => u.id === user.id ? { ...u, is_verified: !u.is_verified } : u));
-    } catch (error) {
+      setUsers(users.map(u => u.id === user.id ? { ...u, is_active: !u.is_active } : u));
+    } catch (error: any) {
       console.error("Failed to toggle suspension", error);
+      alert(error.response?.data?.detail || "Failed to toggle suspension");
     }
   };
 
   const handleDelete = async () => {
     if (deleteConfirmText !== 'DELETE') return;
     try {
-      // In a real scenario you'd hit a DELETE endpoint
+      const token = localStorage.getItem('access_token');
+      await axios.delete(`/api/v1/admin/users/${userToDelete.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setUsers(users.filter(u => u.id !== userToDelete.id));
       setIsDeleteModalOpen(false);
       setUserToDelete(null);
       setDeleteConfirmText('');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to delete", error);
+      alert(error.response?.data?.detail || "Failed to delete user");
     }
   };
 
@@ -76,7 +82,7 @@ export default function SuperAdminManageUsers() {
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('access_token');
-      await axios.post('http://localhost:8000/api/v1/admin/hods', {
+      await axios.post('/api/v1/admin/hods', {
         first_name: createForm.firstName,
         last_name: createForm.lastName,
         email: createForm.email,
@@ -91,10 +97,10 @@ export default function SuperAdminManageUsers() {
       setCreateForm({ role: 'Head of Department', firstName: '', lastName: '', email: '', password: '', departmentName: '' });
       
       // Refresh list
-      const res = await axios.get('http://localhost:8000/api/v1/admin/users', {
+      const res = await axios.get('/api/v1/admin/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setUsers(res.data);
+      setUsers(res.data.items || res.data);
       
     } catch (error: any) {
       console.error("Failed to create user", error);
@@ -173,44 +179,56 @@ export default function SuperAdminManageUsers() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-600 font-bold uppercase">
-                        {user.first_name?.[0]}{user.last_name?.[0]}
+                        {typeof user.first_name === 'string' ? user.first_name[0] : '?'}
+                        {typeof user.last_name === 'string' ? user.last_name[0] : '?'}
                       </div>
                       <div>
-                        <p className="font-medium text-neutral-900">{user.first_name} {user.last_name}</p>
-                        <p className="text-xs text-neutral-500">{user.email}</p>
+                        <p className="font-medium text-neutral-900">
+                          {typeof user.first_name === 'object' ? JSON.stringify(user.first_name) : user.first_name}{' '}
+                          {typeof user.last_name === 'object' ? JSON.stringify(user.last_name) : user.last_name}
+                        </p>
+                        <p className="text-xs text-neutral-500">
+                          {typeof user.email === 'object' ? JSON.stringify(user.email) : user.email}
+                        </p>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="capitalize">{user.role.replace(/_/g, ' ')}</span>
+                    <span className="capitalize">
+                      {typeof user.role === 'string' ? user.role.replace(/_/g, ' ') : JSON.stringify(user.role)}
+                    </span>
                   </td>
                   <td className="px-6 py-4">
-                    {user.is_verified ? (
+                    {user.is_active ? (
                       <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">Active</span>
                     ) : (
                       <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-bold">Suspended</span>
                     )}
                   </td>
                   <td className="px-6 py-4 text-neutral-500">
-                    {new Date(user.created_at || Date.now()).toLocaleDateString()}
+                    {typeof user.created_at === 'object' && !(user.created_at instanceof Date) 
+                      ? JSON.stringify(user.created_at) 
+                      : new Date(user.created_at || Date.now()).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      <button 
-                        onClick={() => handleSuspend(user)}
-                        className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
-                          user.is_verified ? 'text-amber-700 bg-amber-50 hover:bg-amber-100' : 'text-green-700 bg-green-50 hover:bg-green-100'
-                        }`}
-                      >
-                        {user.is_verified ? 'Suspend' : 'Reactivate'}
-                      </button>
-                      <button 
-                        onClick={() => { setUserToDelete(user); setIsDeleteModalOpen(true); }}
-                        className="text-xs font-medium text-red-600 bg-white border border-red-200 px-3 py-1.5 rounded-md hover:bg-red-50 transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                    {user.id !== currentUserId && (
+                      <div className="flex items-center justify-end gap-3">
+                        <button 
+                          onClick={() => handleSuspend(user)}
+                          className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
+                            user.is_active ? 'text-amber-700 bg-amber-50 hover:bg-amber-100' : 'text-green-700 bg-green-50 hover:bg-green-100'
+                          }`}
+                        >
+                          {user.is_active ? 'Suspend' : 'Reactivate'}
+                        </button>
+                        <button 
+                          onClick={() => { setUserToDelete(user); setIsDeleteModalOpen(true); }}
+                          className="text-xs font-medium text-red-600 bg-white border border-red-200 px-3 py-1.5 rounded-md hover:bg-red-50 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

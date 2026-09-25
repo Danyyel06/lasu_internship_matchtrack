@@ -72,3 +72,33 @@ def require_role(*roles: UserRole):
         return current_user
 
     return role_checker
+
+def require_company_capability(capability: str):
+    """Dependency that enforces the company capability matrix server-side."""
+    from sqlalchemy import select
+    from app.models.company import Company
+    from app.services.capability_checker import can_do, CAPABILITY_MATRIX
+    
+    async def capability_checker(
+        current_user: User = Depends(require_role(UserRole.COMPANY_REP)),
+        db: AsyncSession = Depends(get_db)
+    ) -> User:
+        result = await db.execute(select(Company).where(Company.user_id == current_user.id))
+        company = result.scalar_one_or_none()
+        if not company:
+            raise HTTPException(status_code=403, detail="Company record not found")
+        if not can_do(company.trust_tier, capability):
+            allowed = CAPABILITY_MATRIX.get(capability, [])
+            required_tier = min([t for t in [2,3,4] if t in allowed]) if allowed else 4
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error": "tier_required",
+                    "message": f"This action requires a higher verification level.",
+                    "current_tier": company.trust_tier,
+                    "required_tier": required_tier
+                }
+            )
+        return current_user
+    
+    return capability_checker

@@ -34,6 +34,19 @@ export default function ManagePostings() {
     }
   };
 
+  const handleToggleStatus = async (id: number, currentStatus: string) => {
+    const newStatus = currentStatus === 'open' ? 'closed' : 'open';
+    const label = newStatus === 'closed' ? 'close' : 'reopen';
+    if (!window.confirm(`Are you sure you want to ${label} this posting?`)) return;
+    try {
+      await api.patch(`/internships/${id}/status`, { status: newStatus });
+      setPostings(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
+    } catch (err: any) {
+      console.error("Failed to update status", err);
+      alert("Failed to update posting status. " + (err.response?.data?.detail || ""));
+    }
+  };
+
   const filteredPostings = postings.filter((p) => {
     if (activeTab === 'All') return true;
     if (activeTab === 'Active') return p.status === 'open';
@@ -133,6 +146,21 @@ export default function ManagePostings() {
                       >
                         Edit
                       </Link>
+                      {posting.status === 'open' ? (
+                        <button 
+                          onClick={() => handleToggleStatus(posting.id, posting.status)}
+                          className="px-4 py-2 border border-amber-200 text-amber-600 hover:bg-amber-50 rounded-lg text-sm font-semibold transition-colors"
+                        >
+                          Close
+                        </button>
+                      ) : posting.status === 'closed' ? (
+                        <button 
+                          onClick={() => handleToggleStatus(posting.id, posting.status)}
+                          className="px-4 py-2 border border-green-200 text-green-600 hover:bg-green-50 rounded-lg text-sm font-semibold transition-colors"
+                        >
+                          Reopen
+                        </button>
+                      ) : null}
                       <button 
                         onClick={() => handleDelete(posting.id)}
                         className="px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm font-semibold transition-colors"

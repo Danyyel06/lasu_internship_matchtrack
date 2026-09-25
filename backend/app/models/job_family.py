@@ -17,6 +17,7 @@ class JobFamily(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # WSM weights JSON: {"cgpa": N, "skills": N, "projects": N, "coursework": N} — must sum to 100
     default_weights: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    coursework_options: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     sub_roles: Mapped[list[SubRole]] = relationship("SubRole", back_populates="job_family", cascade="all, delete-orphan")
 

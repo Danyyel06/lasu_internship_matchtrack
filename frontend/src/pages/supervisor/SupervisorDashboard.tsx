@@ -1,26 +1,28 @@
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../lib/axios';
 
 export default function SupervisorDashboard() {
   const [interns, setInterns] = useState<any[]>([]);
+  const [cycleLabel, setCycleLabel] = useState<string>("Loading...");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchInterns = async () => {
+    const fetchData = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const res = await axios.get('http://localhost:8000/api/v1/supervisors/interns/growth', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setInterns(res.data);
+        const [internsRes, settingsRes] = await Promise.all([
+          api.get('/supervisors/interns/growth'),
+          api.get('/auth/public-settings')
+        ]);
+        setInterns(internsRes.data.items || internsRes.data);
+        setCycleLabel(settingsRes.data.current_cycle_label || "2026 Summer");
       } catch (err) {
         console.error("Failed to fetch interns", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchInterns();
+    fetchData();
   }, []);
 
   const overdueCount = interns.filter(i => i.consecutive_missed >= 2).length;
@@ -30,9 +32,9 @@ export default function SupervisorDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-neutral-900">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-neutral-900">LASU Industry Supervisor</h1>
         <div className="text-sm text-neutral-500">
-          Current Cycle: <span className="font-medium text-neutral-900">2026 Summer</span>
+          Current Cycle: <span className="font-medium text-neutral-900">{cycleLabel}</span>
         </div>
       </div>
 

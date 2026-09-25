@@ -3,6 +3,8 @@ import axios from 'axios';
 
 export default function HodStudents() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('All');
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [students, setStudents] = useState<any[]>([]);
   
@@ -19,14 +21,14 @@ export default function HodStudents() {
   const fetchStudents = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const res = await axios.get('http://localhost:8000/api/v1/hod/students', {
+      const res = await axios.get('/api/v1/hod/students', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setStudents(res.data);
+      setStudents(res.data.items || res.data);
     } catch (err: any) {
       console.error("Failed to fetch department students", err);
       if (err.response?.status === 401 || err.response?.status === 403) {
-        alert("Authentication Error: You are not authorized to view HOD data. Please log out and log back in with the HOD account (rajilawal@lasu.edu.ng).");
+        alert("Authentication Error: You are not authorized to view HOD data. Please log out and log back in with an HOD account.");
       }
     }
   };
@@ -34,7 +36,7 @@ export default function HodStudents() {
   const fetchSupervisors = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const res = await axios.get('http://localhost:8000/api/v1/hod/supervisors', {
+      const res = await axios.get('/api/v1/hod/supervisors', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSupervisors(res.data);
@@ -49,7 +51,7 @@ export default function HodStudents() {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `http://localhost:8000/api/v1/hod/students/${selectedStudent.id}/assign-supervisor`,
+        `/api/v1/hod/students/${selectedStudent.id}/assign-supervisor`,
         { supervisor_id: selectedSupervisor },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -71,7 +73,11 @@ export default function HodStudents() {
     }
   };
 
-  const filtered = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()) || (s.matric && s.matric.includes(searchTerm)));
+  const filtered = students.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || (s.matric && s.matric.includes(searchTerm));
+    const matchesStatus = statusFilter === 'All' || s.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -88,57 +94,80 @@ export default function HodStudents() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <button className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg font-medium">Filter</button>
+          <div className="relative">
+            <button 
+              onClick={() => setFilterOpen(!filterOpen)}
+              className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg font-medium flex items-center gap-2"
+            >
+              {statusFilter === 'All' ? 'Filter' : statusFilter}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {filterOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-neutral-200 rounded-xl shadow-lg z-10 py-1">
+                {['All', 'Placed', 'Unplaced', 'Pending'].map(status => (
+                  <button
+                    key={status}
+                    onClick={() => { setStatusFilter(status); setFilterOpen(false); }}
+                    className="w-full text-left px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
+                  >
+                    {status === 'All' ? 'All Statuses' : status}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-left">
-          <thead className="bg-neutral-50 border-b border-neutral-200 text-sm text-neutral-600">
-            <tr>
-              <th className="px-6 py-4 font-medium">Student</th>
-              <th className="px-6 py-4 font-medium">Matric No</th>
-              <th className="px-6 py-4 font-medium">Status</th>
-              <th className="px-6 py-4 font-medium">Company Placement</th>
-              <th className="px-6 py-4 font-medium">Academic Supervisor</th>
-              <th className="px-6 py-4 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-neutral-100">
-            {filtered.map(student => (
-              <tr key={student.id} className="hover:bg-neutral-50 transition-colors">
-                <td className="px-6 py-4 font-medium text-neutral-900">{student.name}</td>
-                <td className="px-6 py-4 text-neutral-500">{student.matric}</td>
-                <td className="px-6 py-4">
-                  <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${
-                    student.status === 'Placed' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
-                  }`}>
-                    {student.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="text-sm">
-                    <p className="font-medium text-neutral-900">{student.company}</p>
-                    {student.company !== 'None' && <p className="text-neutral-500 text-xs">{student.role}</p>}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`text-sm ${student.supervisor === 'Unassigned' ? 'text-red-600 font-medium' : 'text-neutral-700'}`}>
-                    {student.supervisor}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <button 
-                    onClick={() => setSelectedStudent(student)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    View Details
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-neutral-50 border-b border-neutral-200 text-sm text-neutral-600">
+              <tr>
+                <th className="px-6 py-4 font-medium">Student</th>
+                <th className="px-6 py-4 font-medium">Matric No</th>
+                <th className="px-6 py-4 font-medium">Status</th>
+                <th className="px-6 py-4 font-medium">Company Placement</th>
+                <th className="px-6 py-4 font-medium">Academic Supervisor</th>
+                <th className="px-6 py-4 font-medium">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {filtered.map(student => (
+                <tr key={student.id} className="hover:bg-neutral-50 transition-colors">
+                  <td className="px-6 py-4 font-medium text-neutral-900">{student.name}</td>
+                  <td className="px-6 py-4 text-neutral-500">{student.matric}</td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${
+                      student.status === 'Placed' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
+                    }`}>
+                      {student.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm">
+                      <p className="font-medium text-neutral-900">{student.company}</p>
+                      {student.company !== 'None' && <p className="text-neutral-500 text-xs">{student.role}</p>}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`text-sm ${student.supervisor === 'Unassigned' ? 'text-red-600 font-medium' : 'text-neutral-700'}`}>
+                      {student.supervisor}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <button 
+                      onClick={() => setSelectedStudent(student)}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      View Details
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {filtered.length === 0 && (
           <div className="p-12 text-center text-neutral-500">No students found matching your search.</div>
         )}

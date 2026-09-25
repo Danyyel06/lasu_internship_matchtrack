@@ -16,3 +16,8 @@ from .notification import Notification
 from .system_setting import SystemSetting
 from .intervention import Intervention
 from .audit_log import AuditLog
+from .skill_verification import SkillVerificationQuestion, SkillVerificationAttempt
+from .verification_submission import VerificationSubmission, VerificationStatus
+from .verification_document import VerificationDocument
+from .verification_event import VerificationEvent
+from .otp_record import OtpRecord

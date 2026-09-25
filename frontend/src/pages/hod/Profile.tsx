@@ -16,7 +16,7 @@ export default function HODProfile() {
   const fetchProfile = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const res = await axios.get('http://localhost:8000/api/v1/hod/profile', {
+      const res = await axios.get('/api/v1/hod/profile', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProfile(res.data);
@@ -34,7 +34,7 @@ export default function HODProfile() {
   const handleUpdate = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      await axios.put('http://localhost:8000/api/v1/hod/profile', editForm, {
+      await axios.put('/api/v1/hod/profile', editForm, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setIsEditing(false);

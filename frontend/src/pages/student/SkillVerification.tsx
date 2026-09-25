@@ -29,6 +29,8 @@ export default function SkillVerification() {
   const [allowedSkills, setAllowedSkills] = useState<string[]>([]);
   const [subRoleName, setSubRoleName] = useState<string | null>(null);
   const [jobFamilyName, setJobFamilyName] = useState<string | null>(null);
+  const [upgradeModalSkill, setUpgradeModalSkill] = useState<{skill_name: string, current_level: number} | null>(null);
+  const [upgradeModalLevel, setUpgradeModalLevel] = useState<number | ''>('');
 
   const fetchStatus = async () => {
     try {
@@ -77,18 +79,25 @@ export default function SkillVerification() {
     }
   };
 
-  const handleUpgrade = async (skill_name: string, current_level: number) => {
-    const newLevelStr = prompt(`Enter new level for ${skill_name} (Current: ${current_level}, Max: 5):`);
-    if (!newLevelStr) return;
-    const newLevel = parseInt(newLevelStr);
-    if (isNaN(newLevel) || newLevel <= current_level || newLevel > 5) {
+  const handleUpgradeClick = (skill_name: string, current_level: number) => {
+    setUpgradeModalSkill({ skill_name, current_level });
+    setUpgradeModalLevel('');
+  };
+
+  const submitUpgrade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!upgradeModalSkill || upgradeModalLevel === '') return;
+    const newLevel = typeof upgradeModalLevel === 'string' ? parseInt(upgradeModalLevel) : upgradeModalLevel;
+    
+    if (isNaN(newLevel) || newLevel <= upgradeModalSkill.current_level || newLevel > 5) {
       alert("Invalid level. Must be a number between your current level + 1 and 5.");
       return;
     }
+    
     setActionLoading(true);
     try {
       await axiosInstance.post('/skill-verification/upgrade-skill', {
-        skill_name,
+        skill_name: upgradeModalSkill.skill_name,
         claimed_level: newLevel
       });
       navigate('/student/skill-verification/test');
@@ -96,6 +105,7 @@ export default function SkillVerification() {
       alert(err?.response?.data?.detail || 'Failed to start upgrade');
     } finally {
       setActionLoading(false);
+      setUpgradeModalSkill(null);
     }
   };
 
@@ -231,7 +241,7 @@ export default function SkillVerification() {
                       )}
                       {(isVerified) && (
                         <button
-                          onClick={() => handleUpgrade(skill.skill_name, skill.verified_level || skill.claimed_level)}
+                          onClick={() => handleUpgradeClick(skill.skill_name, skill.verified_level || skill.claimed_level)}
                           disabled={actionLoading}
                           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
                         >
@@ -330,6 +340,50 @@ export default function SkillVerification() {
           </div>
         </div>
       </div>
+
+      {upgradeModalSkill && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+            <h3 className="text-xl font-bold text-neutral-900 mb-2">Upgrade Skill Level</h3>
+            <p className="text-sm text-neutral-600 mb-4">
+              Enter new level for <strong>{upgradeModalSkill.skill_name}</strong>.
+            </p>
+            <form onSubmit={submitUpgrade}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  New Level (Current: {upgradeModalSkill.current_level}, Max: 5)
+                </label>
+                <input
+                  type="number"
+                  min={upgradeModalSkill.current_level + 1}
+                  max="5"
+                  required
+                  value={upgradeModalLevel}
+                  onChange={(e) => setUpgradeModalLevel(parseInt(e.target.value) || '')}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setUpgradeModalSkill(null)}
+                  disabled={actionLoading}
+                  className="px-4 py-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 text-sm font-semibold rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading || upgradeModalLevel === ''}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {actionLoading ? 'Saving...' : 'Save & Verify'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

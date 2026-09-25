@@ -11,7 +11,7 @@ export default function AcadSupStudentProfile() {
     const fetchStudent = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const res = await axios.get('http://localhost:8000/api/v1/academic-supervisors/students', {
+        const res = await axios.get('/api/v1/academic-supervisors/students', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const student = res.data.find((s: any) => s.id === Number(id));

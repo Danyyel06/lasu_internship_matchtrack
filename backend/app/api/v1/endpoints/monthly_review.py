@@ -158,10 +158,13 @@ async def get_monthly_digest(
         raise HTTPException(status_code=404, detail="Student not found")
     user, student = user_row
 
-    # Get weekly logs for the month
+    # Get weekly logs for the month — eagerly load quiz_attempt to avoid lazy-load errors in async
+    from sqlalchemy.orm import selectinload
     start_week, end_week = _month_year_to_week_range(month_year)
     logs_res = await db.execute(
-        select(WeeklyLog).where(
+        select(WeeklyLog)
+        .options(selectinload(WeeklyLog.quiz_attempt))
+        .where(
             WeeklyLog.application_id == application.id,
             WeeklyLog.week_number >= start_week,
             WeeklyLog.week_number <= end_week,

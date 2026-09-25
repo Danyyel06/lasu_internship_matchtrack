@@ -25,7 +25,16 @@ class FitScoreCalculator:
         
         skills_score = 0.0
         if student_skills:
-            total_levels = sum([s.verified_level or 0 for s in student_skills])
+            if student.skill_verification_completed_at:
+                total_levels = 0
+                for s in student_skills:
+                    if s.verification_status == "verified" and s.verified_level:
+                        total_levels += s.verified_level
+                    else:
+                        total_levels += int((s.claimed_level or 0) * 0.5)
+            else:
+                total_levels = sum([s.claimed_level or 0 for s in student_skills])
+                
             avg_level = total_levels / len(student_skills)
             skills_score = min((avg_level / 5.0) * 100, 100)
 
@@ -79,16 +88,25 @@ class FitScoreCalculator:
         requirements = reqs_result.scalars().all()
         
         skills_result = await db.execute(select(StudentSkill).where(StudentSkill.student_id == student.id))
-        student_skills = {s.skill_name: s.verified_level or 0 for s in skills_result.scalars().all()}
+        student_skills_full = skills_result.scalars().all()
         
         skills_score = 0.0
         if requirements:
             total_levels = 0
             for req in requirements:
-                s_level = student_skills.get(req.skill_name, 0)
+                # If internship required skills are checked against student skills
+                s_skill = next((s for s in student_skills_full if s.skill_name == req.skill_name), None)
+                if not s_skill:
+                    s_level = 0
+                elif student.skill_verification_completed_at:
+                    if s_skill.verification_status == "verified" and s_skill.verified_level:
+                        s_level = s_skill.verified_level
+                    else:
+                        s_level = int((s_skill.claimed_level or 0) * 0.5)
+                else:
+                    s_level = s_skill.claimed_level or 0
                 total_levels += s_level
             
-            # Average level across required skills, normalized to 100 (assuming max level is 5)
             avg_level = total_levels / len(requirements)
             skills_score = min((avg_level / 5.0) * 100, 100)
         else:
@@ -142,7 +160,18 @@ class GapAnalyser:
         requirements = reqs_result.scalars().all()
         
         skills_result = await db.execute(select(StudentSkill).where(StudentSkill.student_id == student_id))
-        student_skills = {s.skill_name: s.verified_level or 0 for s in skills_result.scalars().all()}
+        student_skills_full = skills_result.scalars().all()
+        student_skills = {}
+        
+        student = await db.scalar(select(Student).where(Student.id == student_id))
+        for s in student_skills_full:
+            if student and student.skill_verification_completed_at:
+                if s.verification_status == "verified" and s.verified_level:
+                    student_skills[s.skill_name] = s.verified_level
+                else:
+                    student_skills[s.skill_name] = int((s.claimed_level or 0) * 0.5)
+            else:
+                student_skills[s.skill_name] = s.claimed_level or 0
         
         gaps = []
         for req in requirements:

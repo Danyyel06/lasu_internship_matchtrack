@@ -16,7 +16,7 @@ export default function HodDashboard() {
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const res = await axios.get('http://localhost:8000/api/v1/hod/dashboard-stats', {
+        const res = await axios.get('/api/v1/hod/dashboard-stats', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setStats(res.data);

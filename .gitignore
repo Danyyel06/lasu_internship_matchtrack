@@ -13,6 +13,8 @@ __pycache__/
 venv/
 env/
 .env
+.env.*
+*.db
 
 # Uploads
 uploads/

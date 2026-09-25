@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -14,8 +14,10 @@ from app.models.internship import Internship
 from app.models.company import Company
 from app.models.academic_supervisor_profile import AcademicSupervisorProfile
 from app.dependencies import get_current_user, require_role
+from app.schemas.pagination import PaginatedResponse
 
 router = APIRouter()
+
 
 class InterventionResponse(BaseModel):
     method: str
@@ -33,8 +35,10 @@ class HodStudentResponse(BaseModel):
     status: str
     interventions: List[InterventionResponse] = []
 
-@router.get("/students", response_model=List[HodStudentResponse])
+@router.get("/students", response_model=PaginatedResponse[HodStudentResponse])
 async def get_department_students(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
     current_user: User = Depends(require_role(UserRole.HEAD_OF_DEPARTMENT)),
     db: AsyncSession = Depends(get_db)
 ):
@@ -79,18 +83,6 @@ async def get_department_students(
                 if sup_user:
                     supervisor_name = f"{sup_user.first_name} {sup_user.last_name}"
 
-        interventions_mock = []
-        # Mock intervention for demonstration purposes if supervisor is assigned
-        if supervisor_name != "Unassigned":
-            interventions_mock.append(
-                InterventionResponse(
-                    method="Phone Call",
-                    date="2023-10-25",
-                    notes="Called student to discuss 2 missed pulse checks. Student had connectivity issues. Warned about consequences.",
-                    logged_by=supervisor_name
-                )
-            )
-
         response.append(HodStudentResponse(
             id=student.id,
             name=f"{user.first_name} {user.last_name}",
@@ -99,10 +91,20 @@ async def get_department_students(
             role=role_title,
             supervisor=supervisor_name,
             status=status_str,
-            interventions=interventions_mock
+            interventions=[]
         ))
 
-    return response
+    total = len(response)
+    skip = (page - 1) * limit
+    paginated_response = response[skip : skip + limit]
+
+    return {
+        "items": paginated_response,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "pages": (total + limit - 1) // limit if limit > 0 else 1
+    }
 
 class HodSupervisorResponse(BaseModel):
     id: int # this will be user_id
@@ -183,12 +185,13 @@ async def create_supervisor(
     current_user: User = Depends(require_role(UserRole.HEAD_OF_DEPARTMENT)),
     db: AsyncSession = Depends(get_db)
 ):
+    import secrets
     hod_res = await db.execute(select(HeadOfDepartment).where(HeadOfDepartment.user_id == current_user.id))
     hod = hod_res.scalar_one_or_none()
     if not hod:
         raise HTTPException(status_code=400, detail="HOD profile not found")
 
-    # check if user exists
+    # Check if user exists
     existing = await db.execute(select(User).where(User.email == payload.email))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="User already exists")
@@ -198,13 +201,20 @@ async def create_supervisor(
     last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
 
     from app.core.security import hash_password
+
+    # Generate a secure, unique activation token
+    activation_token = secrets.token_urlsafe(32)
+
+    # Create User — account is not yet activated; no usable password yet
     user = User(
         email=payload.email,
-        password_hash=hash_password("password123"), # Default password for testing
+        password_hash=hash_password(secrets.token_hex(16)),  # placeholder — replaced on activation
         first_name=first_name,
         last_name=last_name,
         role=UserRole.ACADEMIC_SUPERVISOR,
-        is_verified=True
+        is_verified=False,
+        is_activated=False,
+        activation_token=activation_token,
     )
     db.add(user)
     await db.flush()
@@ -216,8 +226,14 @@ async def create_supervisor(
     )
     db.add(profile)
     await db.commit()
-    
-    return {"message": "Supervisor created", "password": "password123"}
+
+    # Build the activation URL (dev mode: returned in response so no email needed)
+    activation_url = f"http://localhost:5173/academic-supervisor/activate?token={activation_token}"
+
+    return {
+        "message": "Supervisor created",
+        "activation_url": activation_url,  # Dev mode: copy this link to activate
+    }
 
 @router.get("/dashboard-stats")
 async def get_dashboard_stats(
@@ -289,12 +305,47 @@ async def get_placement_stats(
     if not hod:
         raise HTTPException(status_code=400, detail="HOD profile not found")
 
-    # In a real scenario, this would aggregate actual placements by company industry or job family
-    # For now, we will return some mock data shaped correctly for Recharts
+    # Fetch all students in this department
+    stmt = select(Student).where(Student.department == hod.department)
+    result = await db.execute(stmt)
+    students = result.scalars().all()
+    
+    # Check placement status for each student
+    app_stmt = (
+        select(Application.student_id, Company.industry)
+        .join(Internship, Application.internship_id == Internship.id)
+        .join(Company, Internship.company_id == Company.id)
+        .where(Application.status.in_(['accepted', 'Accepted']))
+    )
+    app_res = await db.execute(app_stmt)
+    accepted_apps = app_res.all()
+    
+    placed_student_dict = {row.student_id: row.industry for row in accepted_apps}
+    
+    industry_counts = {}
+    level_counts = {}
+    
+    for student in students:
+        lvl = str(student.level) if student.level else "Unknown"
+        if lvl not in level_counts:
+            level_counts[lvl] = {"placed": 0, "unplaced": 0}
+            
+        if student.id in placed_student_dict:
+            level_counts[lvl]["placed"] += 1
+            ind = placed_student_dict[student.id] or "Other"
+            industry_counts[ind] = industry_counts.get(ind, 0) + 1
+        else:
+            level_counts[lvl]["unplaced"] += 1
+
+    placementByIndustry = [{"name": k, "value": v} for k, v in industry_counts.items()]
+    placementByLevel = [
+        {"name": f"{k} Level" if k != "Unknown" else "Unknown Level", "placed": v["placed"], "unplaced": v["unplaced"]} 
+        for k, v in level_counts.items()
+    ]
     
     return {
-        "placementByIndustry": [],
-        "placementByLevel": []
+        "placementByIndustry": placementByIndustry,
+        "placementByLevel": placementByLevel
     }
 
 class HodProfileUpdate(BaseModel):
@@ -321,8 +372,8 @@ async def get_hod_profile(
         "faculty": hod.faculty or "N/A",
         "department": hod.department,
         "is_verified": hod.is_admin_verified,
-        "phone_number": getattr(current_user, 'phone_number', None) or "+234 XXX XXX XXXX",
-        "office_location": getattr(hod, 'office_location', None) or "Not set"
+        "phone_number": hod.phone_number or "",
+        "office_location": hod.office_location or ""
     }
 
 @router.put("/profile")
@@ -339,9 +390,8 @@ async def update_hod_profile(
     current_user.first_name = req.first_name
     current_user.last_name = req.last_name
     
-    # Since phone_number might not be in User model and office_location might not be in HeadOfDepartment model,
-    # let's just pretend we update them or add them to the model if they exist.
-    # Currently we don't have phone_number in User. Let's just return success for now.
+    hod.phone_number = req.phone_number
+    hod.office_location = req.office_location
     
     await db.commit()
     return {"message": "Profile updated successfully"}

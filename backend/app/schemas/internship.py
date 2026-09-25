@@ -69,3 +69,6 @@ class InternshipPublicResponse(InternshipResponse):
     match_percentage: float | None = None
     company_name: str | None = None
     gap_analysis: list[dict] | None = None
+    is_individual_verified: bool | None = False
+    verification_method: str | None = None
+    trust_tier: int | None = 1

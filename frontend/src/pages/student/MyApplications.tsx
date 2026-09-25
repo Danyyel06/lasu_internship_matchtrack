@@ -4,6 +4,7 @@ import api from '../../lib/axios';
 
 interface Application {
   id: string;
+  internshipId: number;
   companyName: string;
   role: string;
   location: string;
@@ -22,16 +23,30 @@ export default function MyApplications() {
     const fetchApps = async () => {
       try {
         const res = await api.get('/applications/mine');
-        const mapped = res.data.map((app: any) => ({
-          id: app.id,
-          companyName: app.company_name || 'Company',
-          role: app.role || 'Internship',
-          location: '', // Add if needed
-          trackType: app.track_type || 'Competitive',
-          dateApplied: new Date(app.applied_at).toLocaleDateString(),
-          status: app.status === 'applied' ? 'Pending' : (app.status.charAt(0).toUpperCase() + app.status.slice(1)),
-          fitScore: app.fit_score || 0
-        }));
+        let mapped = res.data.map((app: any) => {
+          const rawTrack = app.track_type || 'Competitive';
+          const capitalizedTrack = rawTrack.charAt(0).toUpperCase() + rawTrack.slice(1);
+          const rawScore = app.fit_score ? parseFloat(app.fit_score) : 0;
+          
+          return {
+            id: app.id,
+            internshipId: app.internship_id,
+            companyName: app.company_name || 'Company',
+            role: app.role || 'Internship',
+            location: '', // Add if needed
+            trackType: capitalizedTrack,
+            dateApplied: new Date(app.applied_at).toLocaleDateString(),
+            status: app.status === 'applied' ? 'Pending' : (app.status.charAt(0).toUpperCase() + app.status.slice(1)),
+            fitScore: rawScore.toFixed(1)
+          };
+        });
+        
+        // If they have an accepted application, hide all others per exclusive placement rules
+        const acceptedApp = mapped.find((app: any) => app.status === 'Accepted');
+        if (acceptedApp) {
+          mapped = [acceptedApp];
+        }
+
         setApplications(mapped);
       } catch (err) {
         console.error(err);
@@ -133,7 +148,7 @@ export default function MyApplications() {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right space-x-3">
-                      <Link to={`/student/browse/${app.id}`} className="text-sm font-semibold text-violet-600 hover:text-violet-700">
+                      <Link to={`/student/browse/${app.internshipId}`} className="text-sm font-semibold text-violet-600 hover:text-violet-700">
                         View Posting
                       </Link>
                       {app.status === 'Pending' && (
@@ -143,6 +158,11 @@ export default function MyApplications() {
                         >
                           Withdraw
                         </button>
+                      )}
+                      {app.status === 'Accepted' && (
+                        <Link to="/student/log" className="inline-flex items-center justify-center text-sm font-bold text-green-700 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-lg border border-green-200 transition-colors ml-2">
+                          Start Evidence Log
+                        </Link>
                       )}
                     </td>
                   </tr>

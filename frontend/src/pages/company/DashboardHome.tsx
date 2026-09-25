@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import api from '../../lib/axios';
+import { useCompanyTier } from '../../lib/hooks/useCompanyTier';
 
 export default function DashboardHome() {
   const [companyName, setCompanyName] = useState('Company');
   const [activePostings, setActivePostings] = useState<any[]>([]);
   const [totalApplications, setTotalApplications] = useState(0);
+  const { trustTier, tiers, isLoading } = useCompanyTier();
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -22,11 +24,17 @@ export default function DashboardHome() {
 
     const fetchDashboardData = async () => {
       try {
-        const postingsRes = await api.get('/internships/company');
-        setActivePostings(postingsRes.data);
-        
-        const appsRes = await api.get('/applications/company');
-        setTotalApplications(appsRes.data.length);
+        const [postingsRes, appsRes, profileRes] = await Promise.all([
+          api.get('/internships/company'),
+          api.get('/applications/company'),
+          api.get('/companies/profile'),
+        ]);
+        setActivePostings(Array.isArray(postingsRes.data) ? postingsRes.data : (postingsRes.data?.items || []));
+        const totalApps = appsRes.data?.total ?? (Array.isArray(appsRes.data) ? appsRes.data.length : (appsRes.data?.items?.length || 0));
+        setTotalApplications(totalApps);
+        if (profileRes.data?.company_name) {
+          setCompanyName(profileRes.data.company_name);
+        }
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
       }
@@ -34,23 +42,38 @@ export default function DashboardHome() {
     fetchDashboardData();
   }, []);
 
+  const getTierChip = () => {
+    if (isLoading) return null;
+    const tierConfig: Record<number, { text: string, classes: string }> = {
+      1: { text: "Level 1 · Registered", classes: "bg-blue-100 text-blue-700" },
+      2: { text: "Level 2 · Verified", classes: "bg-teal-100 text-teal-700" },
+      3: { text: "Level 3 · Accredited", classes: "bg-blue-600 text-white" },
+      4: { text: "Level 4 · LASU Partner", classes: "bg-amber-100 text-amber-700" },
+    };
+    const isPending = tiers.some(t => t.status === 'pending');
+    const conf = tierConfig[trustTier] || tierConfig[1];
+    
+    return (
+      <Link to="/company/verification" className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold gap-1 h-fit mt-1 ${conf.classes}`}>
+        {conf.text} {isPending && <span className="opacity-75 font-normal ml-1">· review in progress</span>}
+      </Link>
+    );
+  };
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-neutral-900 leading-tight">Welcome,<br />{companyName}</h1>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 gap-1 h-fit mt-1">
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-              Verified
-            </span>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 leading-tight">Welcome,<br />{companyName}</h1>
+            <div>{getTierChip()}</div>
           </div>
         </div>
         <Link
           to="/company/post-internship"
-          className="inline-flex items-center justify-center px-5 py-2.5 bg-neutral-900 text-white text-sm font-semibold rounded-lg hover:bg-neutral-800 transition-colors"
+          className="inline-flex items-center justify-center px-5 py-2.5 bg-neutral-900 text-white text-sm font-semibold rounded-lg hover:bg-neutral-800 transition-colors w-full sm:w-auto"
         >
           New Posting
         </Link>

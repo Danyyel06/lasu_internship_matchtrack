@@ -17,10 +17,10 @@ class ArtifactUploadResponse(BaseModel):
 
 class LogCheckInRequest(BaseModel):
     """Body for both Wednesday and Saturday check-in submissions."""
-    focus_area: str = Field(..., max_length=300)
-    core_action: str = Field(..., max_length=300)
-    the_blocker: str = Field(..., max_length=300)
-    the_takeaway: str = Field(..., max_length=300)
+    focus_area: str = Field(..., max_length=2000)
+    core_action: str = Field(..., max_length=2000)
+    the_blocker: str = Field(..., max_length=2000)
+    the_takeaway: str = Field(..., max_length=2000)
     artifact_id: Optional[int] = None  # Artifact uploaded prior to submission
 
 

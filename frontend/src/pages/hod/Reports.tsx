@@ -13,7 +13,7 @@ export default function HODReports() {
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const res = await axios.get('http://localhost:8000/api/v1/hod/reports/placement-stats', {
+        const res = await axios.get('/api/v1/hod/reports/placement-stats', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setStats(res.data);
@@ -28,6 +28,32 @@ export default function HODReports() {
 
   const COLORS = ['#2563EB', '#10B981', '#F59E0B', '#8B5CF6'];
 
+  const handleDownloadCSV = () => {
+    if (!stats) return;
+
+    let csvContent = "data:text/csv;charset=utf-8,";
+    
+    csvContent += "Placement Status by Level\n";
+    csvContent += "Level,Placed,Unplaced,Total\n";
+    stats.placementByLevel.forEach((row: any) => {
+      csvContent += `${row.name},${row.placed},${row.unplaced},${row.placed + row.unplaced}\n`;
+    });
+
+    csvContent += "\nPlacement by Industry\n";
+    csvContent += "Industry,Count\n";
+    stats.placementByIndustry.forEach((row: any) => {
+      csvContent += `"${row.name}",${row.value}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "department_placement_report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-20">
       <div className="flex justify-between items-end">
@@ -35,7 +61,11 @@ export default function HODReports() {
           <h1 className="text-2xl font-bold text-neutral-900">Department Reports</h1>
           <p className="text-neutral-500 mt-1">Analytics and placement statistics for your department.</p>
         </div>
-        <button className="text-sm font-medium text-neutral-600 hover:text-neutral-900 py-2 px-4 rounded-lg border border-neutral-300 hover:bg-neutral-50 transition-colors flex items-center gap-2">
+        <button 
+          onClick={handleDownloadCSV}
+          disabled={!stats || loading}
+          className="text-sm font-medium text-neutral-600 hover:text-neutral-900 py-2 px-4 rounded-lg border border-neutral-300 hover:bg-neutral-50 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <span>↓</span> Download CSV
         </button>
       </div>

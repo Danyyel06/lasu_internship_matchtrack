@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import MobileDrawer from '../components/MobileDrawer';
 
 export default function SuperAdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navigation = [
     { name: 'Dashboard', href: '/super-admin/dashboard', icon: '📊' },
@@ -52,7 +55,7 @@ export default function SuperAdminLayout() {
                     to={item.href}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-blue-50 text-blue-700'
+                        ? 'bg-blue-50 text-blue-700 font-bold'
                         : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
                     }`}
                   >
@@ -79,21 +82,30 @@ export default function SuperAdminLayout() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Mobile Header */}
-        <header className="md:hidden bg-white border-b border-neutral-200 px-4 py-3 flex justify-between items-center">
+        <header className="md:hidden bg-white border-b border-neutral-200 px-4 py-3 flex justify-between items-center sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <img src="/lasu-logo.png" alt="LASU Logo" className="w-6 h-6 object-contain" />
             <span className="font-bold text-neutral-900">LASU<span className="text-blue-600">Admin</span></span>
           </div>
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="p-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-colors"
+            aria-label="Open navigation menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto bg-neutral-50">
+        <div className="flex-1 overflow-auto bg-neutral-50 pb-20 md:pb-0">
           <Outlet />
         </div>
 
-        {/* Mobile Bottom Navigation (4-tab bottom bar) */}
-        <nav className="md:hidden bg-white border-t border-neutral-200">
-          <ul className="flex justify-around items-center">
+        {/* Mobile Bottom Navigation */}
+        <nav className="md:hidden bg-white border-t border-neutral-200 fixed bottom-0 left-0 right-0 z-30 shadow-lg">
+          <ul className="flex justify-around items-center h-16">
             {[
               { name: 'Dashboard', href: '/super-admin/dashboard', icon: '📊' },
               { name: 'Verify', href: '/super-admin/verify', icon: '✅' },
@@ -102,22 +114,42 @@ export default function SuperAdminLayout() {
             ].map((item) => {
               const isActive = location.pathname.startsWith(item.href);
               return (
-                <li key={item.name} className="flex-1">
+                <li key={item.name} className="flex-1 h-full">
                   <Link
                     to={item.href}
-                    className={`flex flex-col items-center justify-center py-3 text-xs font-medium ${
-                      isActive ? 'text-blue-600' : 'text-neutral-500'
+                    className={`flex flex-col items-center justify-center h-full text-xs font-medium ${
+                      isActive ? 'text-blue-600 font-bold' : 'text-neutral-500'
                     }`}
                   >
-                    <span className="text-xl mb-1">{item.icon}</span>
-                    {item.name}
+                    <span className="text-xl mb-0.5">{item.icon}</span>
+                    <span className="text-[10px]">{item.name}</span>
                   </Link>
                 </li>
               );
             })}
+            <li className="flex-1 h-full">
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="flex flex-col items-center justify-center w-full h-full text-neutral-500 hover:text-neutral-900 active:text-blue-600 transition-colors"
+              >
+                <span className="text-xl mb-0.5">☰</span>
+                <span className="text-[10px]">More</span>
+              </button>
+            </li>
           </ul>
         </nav>
       </main>
+
+      {/* Mobile Slide-out Drawer with ALL super admin links */}
+      <MobileDrawer
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        roleTitle="Admin"
+        roleSubtitle="Super Administrator Portal"
+        roleColorClass="text-blue-600"
+        navigation={navigation}
+        onLogout={handleLogout}
+      />
     </div>
   );
 }

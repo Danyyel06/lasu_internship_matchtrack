@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../lib/axios';
 
 export default function HodSupervisors() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -13,20 +13,18 @@ export default function HodSupervisors() {
   const [newEmail, setNewEmail] = useState('');
   const [newTitle, setNewTitle] = useState('Lecturer');
 
+  const [activationLink, setActivationLink] = useState<string | null>(null);
+
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem('access_token');
       const [supRes, stuRes] = await Promise.all([
-        axios.get('http://localhost:8000/api/v1/hod/supervisors', { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get('http://localhost:8000/api/v1/hod/students', { headers: { Authorization: `Bearer ${token}` } })
+        api.get('/hod/supervisors'),
+        api.get('/hod/students')
       ]);
       setSupervisors(supRes.data);
       setStudents(stuRes.data);
     } catch (err: any) {
       console.error(err);
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        alert("Authentication Error: You are not authorized to view HOD data. Please log out and log back in with the HOD account (rajilawal@lasu.edu.ng).");
-      }
     }
   };
 
@@ -39,18 +37,20 @@ export default function HodSupervisors() {
   const handleCreateSupervisor = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.post('http://localhost:8000/api/v1/hod/supervisors', {
+      const res = await api.post('/hod/supervisors', {
         name: newName.trim(),
         email: newEmail.trim(),
         title: newTitle
-      }, { headers: { Authorization: `Bearer ${token}` } });
-      alert('Supervisor invited successfully! Password is password123');
+      });
       setIsAddModalOpen(false);
       setNewName('');
       setNewEmail('');
       setNewTitle('Lecturer');
       fetchData();
+      // Show the activation link so the HOD can share it (dev mode — no email needed)
+      if (res.data?.activation_url) {
+        setActivationLink(res.data.activation_url);
+      }
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Error creating supervisor');
     }
@@ -66,11 +66,10 @@ export default function HodSupervisors() {
   const handleAssign = async () => {
     if (selectedStudents.size === 0) return;
     try {
-      const token = localStorage.getItem('access_token');
-      await Promise.all(Array.from(selectedStudents).map(studentId => 
-        axios.post(`http://localhost:8000/api/v1/hod/students/${studentId}/assign-supervisor`, {
+      await Promise.all(Array.from(selectedStudents).map(studentId =>
+        api.post(`/hod/students/${studentId}/assign-supervisor`, {
           supervisor_user_id: selectedSupervisorForAssign.id
-        }, { headers: { Authorization: `Bearer ${token}` } })
+        })
       ));
       alert('Students assigned successfully!');
       setSelectedSupervisorForAssign(null);
@@ -96,6 +95,45 @@ export default function HodSupervisors() {
         </button>
       </div>
 
+      {/* Dev-mode activation link banner — shown after creating a supervisor */}
+      {activationLink && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-blue-800 mb-1">
+                📋 Supervisor Invitation Link (Dev Mode)
+              </p>
+              <p className="text-xs text-blue-700 mb-2">
+                Share this link with the supervisor so they can set their password and activate
+                their account. In production this would be sent via email automatically.
+              </p>
+              <input
+                type="text"
+                readOnly
+                value={activationLink}
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+                className="w-full text-xs font-mono bg-white border border-blue-300 rounded-lg px-3 py-2 text-blue-900 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(activationLink);
+                alert('Activation link copied to clipboard!');
+              }}
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg flex-shrink-0 transition-colors"
+            >
+              Copy
+            </button>
+            <button
+              onClick={() => setActivationLink(null)}
+              className="text-blue-400 hover:text-blue-600 text-lg leading-none flex-shrink-0"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 border border-neutral-200 rounded-xl shadow-sm">
           <p className="text-sm font-medium text-neutral-500 mb-1">Total Supervisors</p>
@@ -112,62 +150,64 @@ export default function HodSupervisors() {
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-left">
-          <thead className="bg-neutral-50 border-b border-neutral-200 text-sm text-neutral-600">
-            <tr>
-              <th className="px-6 py-4 font-medium">Lecturer</th>
-              <th className="px-6 py-4 font-medium">Status</th>
-              <th className="px-6 py-4 font-medium">Student Load</th>
-              <th className="px-6 py-4 font-medium">Capacity Utilized</th>
-              <th className="px-6 py-4 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-neutral-100">
-            {supervisors.map(sup => {
-              const util = Math.round((sup.assignedStudents / sup.maxStudents) * 100) || 0;
-              return (
-                <tr key={sup.id} className="hover:bg-neutral-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <p className="font-medium text-neutral-900">{sup.name}</p>
-                    <p className="text-sm text-neutral-500">{sup.email}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${
-                      sup.status === 'Active' ? 'bg-success-50 text-success-dark' : 'bg-neutral-100 text-neutral-700'
-                    }`}>
-                      {sup.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="font-medium text-neutral-900">{sup.assignedStudents}</span>
-                    <span className="text-neutral-500 text-sm"> / {sup.maxStudents}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full ${util > 90 ? 'bg-danger' : util > 70 ? 'bg-amber-500' : 'bg-success'}`}
-                          style={{ width: `${util}%` }}
-                        ></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-neutral-50 border-b border-neutral-200 text-sm text-neutral-600">
+              <tr>
+                <th className="px-6 py-4 font-medium">Lecturer</th>
+                <th className="px-6 py-4 font-medium">Status</th>
+                <th className="px-6 py-4 font-medium">Student Load</th>
+                <th className="px-6 py-4 font-medium">Capacity Utilized</th>
+                <th className="px-6 py-4 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {supervisors.map(sup => {
+                const util = Math.round((sup.assignedStudents / sup.maxStudents) * 100) || 0;
+                return (
+                  <tr key={sup.id} className="hover:bg-neutral-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="font-medium text-neutral-900">{sup.name}</p>
+                      <p className="text-sm text-neutral-500">{sup.email}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        sup.status === 'Active' ? 'bg-success-50 text-success-dark' : 'bg-neutral-100 text-neutral-700'
+                      }`}>
+                        {sup.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="font-medium text-neutral-900">{sup.assignedStudents}</span>
+                      <span className="text-neutral-500 text-sm"> / {sup.maxStudents}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${util > 90 ? 'bg-danger' : util > 70 ? 'bg-amber-500' : 'bg-success'}`}
+                            style={{ width: `${util}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-sm text-neutral-600 w-8">{util}%</span>
                       </div>
-                      <span className="text-sm text-neutral-600 w-8">{util}%</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      <button 
-                        onClick={() => { setSelectedSupervisorForAssign(sup); setSelectedStudents(new Set()); }}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                      >
-                        Assign Interns
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        <button 
+                          onClick={() => { setSelectedSupervisorForAssign(sup); setSelectedStudents(new Set()); }}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          Assign Interns
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
         {supervisors.length === 0 && (
           <div className="p-12 text-center text-neutral-500">No supervisors added yet.</div>
         )}

@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../lib/axios';
 
 interface PendingReview {
-  student_id: string;
+  student_id: number;
   student_name: string;
   department: string;
-  company: string;
+  application_id: number;
   month_year: string;
   log_submission_count: number;
-  total_expected: number;
   status: 'pending' | 'endorsed' | 'flagged';
 }
 
@@ -18,12 +17,9 @@ export default function MonthlyReviewList() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchReviews = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const res = await axios.get('http://localhost:8000/api/v1/monthly-review/pending', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await api.get('/monthly-review/pending');
         setReviews(res.data);
       } catch {
         console.error('Failed to load pending reviews');
@@ -31,7 +27,7 @@ export default function MonthlyReviewList() {
         setLoading(false);
       }
     };
-    fetch();
+    fetchReviews();
   }, []);
 
   const getStatusBadge = (status: string) => {
@@ -68,17 +64,15 @@ export default function MonthlyReviewList() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-neutral-900">{r.student_name}</h3>
-                    <p className="text-sm text-neutral-500">{r.department} · {r.company}</p>
+                    <p className="text-sm text-neutral-500">{r.department}</p>
                     <p className="text-xs text-neutral-400 mt-0.5">Period: {r.month_year}</p>
                   </div>
                 </div>
 
                 <div className="flex flex-col sm:items-end gap-2">
                   {getStatusBadge(r.status)}
-                  <span className={`text-xs font-medium ${
-                    r.log_submission_count >= r.total_expected ? 'text-success-dark' : 'text-amber-600'
-                  }`}>
-                    {r.log_submission_count} of {r.total_expected} logs submitted
+                  <span className="text-xs font-medium text-neutral-500">
+                    {r.log_submission_count} log{r.log_submission_count !== 1 ? 's' : ''} submitted
                   </span>
                 </div>
               </div>

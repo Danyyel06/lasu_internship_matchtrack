@@ -12,6 +12,7 @@ from app.models.student import Student
 from app.models.user import User
 from app.models.weekly_log import WeeklyLog
 from app.models.notification import Notification
+from app.models.system_setting import SystemSetting
 from app.ws.manager import manager
 
 
@@ -31,10 +32,17 @@ class BiWeeklyLogService:
         
         Returns the number of alerts dispatched.
         """
+        # Fetch dynamic threshold
+        setting_res = await db.execute(select(SystemSetting).where(SystemSetting.key == 'sys_alert_threshold'))
+        setting = setting_res.scalar_one_or_none()
+        try:
+            threshold = int(setting.value) if setting else 2
+        except (ValueError, TypeError):
+            threshold = 2
+            
         current_week = BiWeeklyLogService.get_current_week_number()
-        # We are checking the week that just ended.
-        last_week = current_week - 1
-        two_weeks_ago = current_week - 2
+        # Create a list of the past `threshold` weeks
+        past_weeks = [current_week - i for i in range(1, threshold + 1)]
 
         # 1. Get all active placements
         stmt = (
@@ -53,29 +61,26 @@ class BiWeeklyLogService:
             if not app.academic_supervisor_id:
                 continue
 
-            # Fetch the logs for the last two weeks
+            # Fetch the logs for the past `threshold` weeks
             logs_stmt = select(WeeklyLog).where(
                 WeeklyLog.application_id == app.id,
-                WeeklyLog.week_number.in_([last_week, two_weeks_ago])
+                WeeklyLog.week_number.in_(past_weeks)
             )
             logs_res = await db.execute(logs_stmt)
             recent_logs = {log.week_number: log for log in logs_res.scalars().all()}
 
             consecutive_misses = 0
 
-            # Check last week (Week N-1)
-            last_week_log = recent_logs.get(last_week)
-            if not last_week_log or (not last_week_log.wed_submitted_at and not last_week_log.sat_submitted_at):
-                consecutive_misses += 1
-
-                # Check two weeks ago (Week N-2)
-                two_weeks_log = recent_logs.get(two_weeks_ago)
-                if not two_weeks_log or (not two_weeks_log.wed_submitted_at and not two_weeks_log.sat_submitted_at):
+            # Check from most recent past week backward
+            for week_num in past_weeks:
+                log = recent_logs.get(week_num)
+                if not log or (not log.wed_submitted_at and not log.sat_submitted_at):
                     consecutive_misses += 1
+                else:
+                    break  # Found a submitted log, chain of misses is broken
 
-            # Dispatch alert if >= 2 consecutive misses
-            # Note: The threshold is default 2 per AGENTS.md requirements
-            if consecutive_misses >= 2:
+            # Dispatch alert if >= threshold consecutive misses
+            if consecutive_misses >= threshold:
                 alerted = await BiWeeklyLogService.dispatch_missed_log_alert(
                     db=db,
                     application=app,

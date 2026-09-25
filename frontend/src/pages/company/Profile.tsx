@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../lib/axios';
 import { useNavigate } from 'react-router-dom';
 
 export default function CompanyProfile() {
@@ -18,10 +18,7 @@ export default function CompanyProfile() {
 
   const fetchProfile = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const res = await axios.get('http://localhost:8000/api/v1/companies/profile', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get('/companies/profile');
       setProfile(res.data);
       setEditForm({
         first_name: res.data.first_name || '',
@@ -40,10 +37,7 @@ export default function CompanyProfile() {
 
   const handleUpdate = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.put('http://localhost:8000/api/v1/companies/profile', editForm, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.put('/companies/profile', editForm);
       setIsEditing(false);
       fetchProfile();
     } catch (err) {

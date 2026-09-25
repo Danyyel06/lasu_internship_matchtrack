@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
@@ -11,8 +11,10 @@ from app.models.company import Company
 from app.models.internship import Internship
 from app.models.application import Application
 from app.schemas.application import ApplicationCreate, ApplicationResponse, ApplicationCompanyResponse, ApplicationStudentResponse
+from app.schemas.pagination import PaginatedResponse
 from app.services.matching import FitScoreCalculator, TierBander
 from datetime import datetime
+from sqlalchemy.orm import selectinload
 
 router = APIRouter()
 
@@ -41,6 +43,19 @@ async def create_application(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Internship not found."
+        )
+
+    # Check if student is already placed
+    accepted_app_res = await db.execute(
+        select(Application).where(
+            Application.student_id == student.id,
+            Application.status == 'accepted'
+        )
+    )
+    if accepted_app_res.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You have already accepted an internship placement and cannot apply for other roles."
         )
 
     # Check if already applied
@@ -119,8 +134,10 @@ async def get_my_applications(
 
     return response_data
 
-@router.get("/company", response_model=List[ApplicationCompanyResponse])
+@router.get("/company", response_model=PaginatedResponse[ApplicationCompanyResponse])
 async def get_company_applications(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
     current_user: User = Depends(require_role(UserRole.COMPANY_REP)),
     db: AsyncSession = Depends(get_db)
 ):
@@ -203,8 +220,18 @@ async def get_company_applications(
         if t3_apps: interleaved_equity.append(t3_apps.pop(0))
 
     response_data = competitive_apps + interleaved_equity
+    
+    total = len(response_data)
+    skip = (page - 1) * limit
+    paginated_data = response_data[skip : skip + limit]
 
-    return response_data
+    return {
+        "items": paginated_data,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "pages": (total + limit - 1) // limit if limit > 0 else 1
+    }
 
 @router.delete("/{application_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def withdraw_application(
@@ -228,8 +255,8 @@ async def withdraw_application(
     if not application:
         raise HTTPException(status_code=404, detail="Application not found or unauthorized.")
         
-    if application.status != "applied":
-        raise HTTPException(status_code=400, detail="Can only withdraw pending applications.")
+    if application.status not in ["applied", "pending", "shortlisted"]:
+        raise HTTPException(status_code=400, detail="Can only withdraw pending or shortlisted applications.")
         
     await db.delete(application)
     await db.commit()

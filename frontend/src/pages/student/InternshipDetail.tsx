@@ -8,27 +8,35 @@ export default function InternshipDetail() {
   const [applying, setApplying] = useState(false);
 
   const [internship, setInternship] = useState<any>(null);
+  const [hasAcceptedPlacement, setHasAcceptedPlacement] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   
   useEffect(() => {
-    const fetchInternship = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get(`/internships/${id}`);
+        const [res, applicationsRes] = await Promise.all([
+          api.get(`/internships/${id}`),
+          api.get('/applications/mine')
+        ]);
+        
         setInternship({
           ...res.data,
           matchPercentage: res.data.match_percentage,
           postedDaysAgo: 0,
-          requirementsList: res.data.requirements?.map((req: any) => `${req.skill_name} (Level ${req.required_level})`) || [],
+          requirementsList: res.data.requirements?.map((req: any) => req.skill_name) || [],
           gapAnalysis: res.data.gap_analysis || []
         });
+
+        const isPlaced = applicationsRes.data.some((app: any) => app.status === 'accepted' || app.status === 'Accepted');
+        setHasAcceptedPlacement(isPlaced);
       } catch (err) {
-        console.error('Failed to load internship', err);
+        console.error('Failed to load data', err);
       } finally {
         setLoading(false);
       }
     };
-    fetchInternship();
+    fetchData();
   }, [id]);
 
   const handleApply = async () => {
@@ -71,17 +79,41 @@ export default function InternshipDetail() {
           <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-6 sm:p-8">
             <div className="flex justify-between items-start mb-6">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-xl bg-neutral-100 flex items-center justify-center font-bold text-2xl text-neutral-500">
+                <div className="w-16 h-16 rounded-xl bg-neutral-100 flex items-center justify-center font-bold text-2xl text-neutral-500 shrink-0">
                   {internship.company_name ? internship.company_name.charAt(0).toUpperCase() : 'C'}
                 </div>
                 <div>
-                  <h1 className="text-3xl font-extrabold text-neutral-900 tracking-tight mt-1 mb-2">{internship.title}</h1>
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-sm font-bold text-neutral-600">{internship.company_name}</span>
+                    {internship.is_individual_verified ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                        👤 Individual Host
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-neutral-100 text-neutral-700 border border-neutral-200">
+                        🏢 Verified Company
+                      </span>
+                    )}
+                  </div>
+                  <h1 className="text-3xl font-extrabold text-neutral-900 tracking-tight mb-2">{internship.title}</h1>
                   <p className="text-neutral-500 font-medium flex items-center gap-2">
                     <span className="text-lg">📍</span> {internship.location || 'Location TBD'}
                   </p>
                 </div>
               </div>
             </div>
+
+            {internship.is_individual_verified && (
+              <div className="mb-6 p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
+                <span className="text-base mt-0.5 shrink-0">👤</span>
+                <div>
+                  <span className="font-bold">Individual / Solo Host Placement:</span>
+                  <span className="text-amber-800 ml-1">
+                    This internship opportunity is hosted directly by an individual professional rather than an incorporated company team. You will be reporting to and working directly under their mentorship.
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col gap-4 text-sm text-neutral-600 border-t border-neutral-100 pt-6">
               <div className="flex items-center justify-between">
@@ -134,24 +166,35 @@ export default function InternshipDetail() {
                 />
               </div>
 
-              <div className="space-y-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Gap Analysis</p>
-                {internship.gapAnalysis && internship.gapAnalysis.map((gap: any, i: number) => (
-                  <div key={i} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-neutral-900">{gap.skill_name}</span>
-                      {gap.meets_requirement ? (
-                        <span className="text-green-600 font-medium flex items-center gap-1">✅ Met</span>
-                      ) : (
-                        <span className="text-red-600 font-medium flex items-center gap-1">❌ Missing</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-neutral-500 leading-relaxed">
-                      {gap.meets_requirement ? `Student Level ${gap.student_level} / Required ${gap.required_level}` : `Gap: ${gap.gap} levels (Required ${gap.required_level}, Student has ${gap.student_level})`}
-                    </p>
-                  </div>
-                ))}
-                {!internship.gapAnalysis || internship.gapAnalysis.length === 0 && (
+              <div className="mt-6">
+                <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-3">Gap Analysis</p>
+                {internship.gapAnalysis && internship.gapAnalysis.length > 0 ? (
+                  <ul className="divide-y divide-neutral-100 border-t border-neutral-100">
+                    {internship.gapAnalysis.map((gap: any, i: number) => (
+                      <li key={i} className="py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-medium text-neutral-900 leading-tight">{gap.skill_name}</p>
+                            <p className="text-xs text-neutral-500 mt-1">
+                              {gap.meets_requirement ? 'Required skill met' : 'Skill missing — not yet added to profile'}
+                            </p>
+                          </div>
+                          <div className="shrink-0 mt-0.5">
+                            {gap.meets_requirement ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-50 text-green-700 text-[10px] font-bold uppercase tracking-wider border border-green-100">
+                                ✅ Met
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-50 text-red-700 text-[10px] font-bold uppercase tracking-wider border border-red-100">
+                                ❌ Missing
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
                   <p className="text-xs text-neutral-500">No skill requirements specified or gap analysis unavailable.</p>
                 )}
               </div>
@@ -171,20 +214,26 @@ export default function InternshipDetail() {
                   : 'Open to a diverse talent pool across all tiers to foster development.'}
               </p>
 
-              <button 
-                onClick={handleApply}
-                disabled={applying}
-                className="mt-2 w-full py-3.5 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-semibold rounded-xl transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {applying ? (
-                  <>Submitting...</>
-                ) : (
-                  <>
-                    Apply Now
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                  </>
-                )}
-              </button>
+              {hasAcceptedPlacement ? (
+                <div className="mt-2 w-full py-3.5 bg-green-50 text-green-700 font-semibold rounded-xl border border-green-200 text-center">
+                  You have already accepted a placement.
+                </div>
+              ) : (
+                <button 
+                  onClick={handleApply}
+                  disabled={applying}
+                  className="mt-2 w-full py-3.5 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-semibold rounded-xl transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {applying ? (
+                    <>Submitting...</>
+                  ) : (
+                    <>
+                      Apply Now
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </>
+                  )}
+                </button>
+              )}
               {errorMsg && <p className="text-sm text-red-600 mt-2">{errorMsg}</p>}
             </div>
           </div>

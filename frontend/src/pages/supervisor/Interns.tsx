@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../lib/axios';
 
 export default function Interns() {
   const navigate = useNavigate();
   const [interns, setInterns] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchInterns();
@@ -12,10 +13,8 @@ export default function Interns() {
 
   const fetchInterns = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/v1/supervisors/interns/growth', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
-      });
-      setInterns(response.data);
+      const response = await api.get('/supervisors/interns/growth');
+      setInterns(response.data.items || response.data);
     } catch (error) {
       console.error("Failed to fetch interns", error);
     }
@@ -33,16 +32,25 @@ export default function Interns() {
           type="text" 
           placeholder="Search interns by name or ID..." 
           className="w-full md:max-w-md border border-neutral-200 rounded-lg p-3 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      {interns.length === 0 ? (
-        <div className="text-center p-8 bg-white border border-neutral-200 rounded-xl">
-          <p className="text-neutral-500">No interns assigned to you yet.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {interns.map(intern => {
+      {(() => {
+        const filteredInterns = interns.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+        if (filteredInterns.length === 0) {
+          return (
+            <div className="text-center p-8 bg-white border border-neutral-200 rounded-xl">
+              <p className="text-neutral-500">No interns found.</p>
+            </div>
+          );
+        }
+
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredInterns.map(intern => {
             const [current, total] = intern.progress.split(' / ').map(Number);
             const percent = total > 0 ? (current / total) * 100 : 0;
             return (
@@ -74,9 +82,10 @@ export default function Interns() {
                 </div>
               </div>
             );
-          })}
-        </div>
-      )}
+            })}
+          </div>
+        );
+      })()}
     </div>
   );
 }

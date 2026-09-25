@@ -6,6 +6,8 @@ export default function StudentDashboardHome() {
   const [firstName, setFirstName] = useState('Student');
   const [recommendedInternships, setRecommendedInternships] = useState<any[]>([]);
   const [fitScore, setFitScore] = useState<number>(0);
+  const [isVerified, setIsVerified] = useState<boolean>(false);
+  const [pendingSkills, setPendingSkills] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,12 +36,18 @@ export default function StudentDashboardHome() {
 
     const fetchProfileData = async () => {
       try {
-        const profileRes = await axiosInstance.get('/students/profile');
-        if (profileRes.data.preliminary_fit_score) {
-          setFitScore(Math.round(profileRes.data.preliminary_fit_score));
+        const profileRes = await axiosInstance.get('/skill-verification/status');
+        if (profileRes.data.skill_verification_completed_at) {
+          setIsVerified(true);
+          setFitScore(Math.round(profileRes.data.verified_fit_score || 0));
+        } else {
+          setIsVerified(false);
+          setFitScore(Math.round(profileRes.data.preliminary_fit_score || 0));
+          const pending = profileRes.data.skills.filter((s: any) => s.verification_status !== 'verified').length;
+          setPendingSkills(pending);
         }
       } catch (error) {
-        console.error('Failed to fetch student profile:', error);
+        console.error('Failed to fetch verification status:', error);
       }
     };
 
@@ -125,7 +133,7 @@ export default function StudentDashboardHome() {
                         <span className="block text-sm font-bold text-green-600">{internship.match_percentage}% Match</span>
                       </div>
                       <Link 
-                        to={`/student/internships/${internship.id}`} 
+                        to={`/student/browse/${internship.id}`} 
                         className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 text-sm font-semibold rounded-lg transition-colors"
                       >
                         View
@@ -149,7 +157,16 @@ export default function StudentDashboardHome() {
           
           {/* Profile Fit Score */}
           <div className="bg-white rounded-xl border border-neutral-200 p-6 shadow-sm flex flex-col items-center text-center">
-            <h2 className="text-lg font-bold text-neutral-900 w-full text-center mb-6">Profile Fit Score</h2>
+            <div className="flex items-center gap-2 mb-6">
+              <h2 className="text-lg font-bold text-neutral-900">
+                {isVerified ? "Verified Fit Score" : "Assumed Fit Score"}
+              </h2>
+              {isVerified ? (
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-success-100 text-success-dark">✓</span>
+              ) : (
+                <span className="inline-flex px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800">Unverified</span>
+              )}
+            </div>
             
             <div className="relative w-36 h-36 flex items-center justify-center mb-6">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
@@ -161,7 +178,7 @@ export default function StudentDashboardHome() {
                   strokeWidth="3.5"
                 />
                 <path
-                  className="text-slate-900"
+                  className={`text-${isVerified ? 'success-dark' : 'slate-900'}`}
                   strokeDasharray={`${fitScore}, 100`}
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   fill="none"
@@ -175,16 +192,33 @@ export default function StudentDashboardHome() {
               </div>
             </div>
 
-            <p className="text-sm text-neutral-600 mb-6 px-4">
-              You are a strong match for tech roles. Complete your profile to increase your score.
-            </p>
+            {!isVerified ? (
+              <div className="w-full bg-teal-50 border border-teal-200 rounded-xl p-4 mb-4 text-left">
+                <p className="text-sm font-bold text-teal-900 mb-1">Verify Your Skills →</p>
+                <p className="text-xs text-teal-800 mb-3">
+                  Get your Verified Fit Score and strengthen your match ranking. {pendingSkills} skills pending.
+                </p>
+                <Link
+                  to="/student/skill-verification"
+                  className="block w-full py-2 text-center bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-bold transition-colors"
+                >
+                  Begin Verification
+                </Link>
+              </div>
+            ) : (
+              <p className="text-sm text-neutral-600 mb-6 px-4">
+                You are a strong match for tech roles. Keep growing to increase your score.
+              </p>
+            )}
 
-            <Link 
-              to="/student/profile"
-              className="block w-full py-2.5 text-center bg-white border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors"
-            >
-              Update Profile
-            </Link>
+            {isVerified && (
+              <Link 
+                to="/student/skill-verification"
+                className="block w-full py-2.5 text-center bg-white border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors"
+              >
+                Manage Skills
+              </Link>
+            )}
           </div>
 
           {/* Upcoming Deadlines */}

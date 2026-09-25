@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from typing import List
 
 from app.db.session import get_db
@@ -13,6 +13,7 @@ from app.schemas.internship import InternshipCreate, InternshipUpdate, Internshi
 from app.core.redis import get_redis
 import redis.asyncio as redis
 from app.services.matching import FitScoreCalculator, GapAnalyser
+from app.services.capability_checker import get_capabilities
 
 router = APIRouter()
 
@@ -30,7 +31,7 @@ async def get_company_internships(
     if not company:
         raise HTTPException(status_code=404, detail="Company profile not found.")
 
-    query = select(Internship, Company.company_name).join(
+    query = select(Internship, Company).join(
         Company, Internship.company_id == Company.id
     ).options(selectinload(Internship.requirements)).where(Internship.company_id == company.id)
     
@@ -38,7 +39,7 @@ async def get_company_internships(
     internships_rows = result.all()
 
     response_data = []
-    for inc, company_name in internships_rows:
+    for inc, comp in internships_rows:
         inc_dict = {
             "id": inc.id,
             "company_id": inc.company_id,
@@ -57,7 +58,10 @@ async def get_company_internships(
             "created_at": inc.created_at,
             "requirements": inc.requirements,
             "match_percentage": 0.0,
-            "company_name": company_name
+            "company_name": comp.company_name,
+            "is_individual_verified": comp.is_individual_verified,
+            "verification_method": comp.verification_method,
+            "trust_tier": comp.trust_tier,
         }
         response_data.append(inc_dict)
 
@@ -76,7 +80,7 @@ async def get_recommended_internships(
     if not student:
         raise HTTPException(status_code=404, detail="Student profile not found")
 
-    query = select(Internship, Company.company_name).join(
+    query = select(Internship, Company).join(
         Company, Internship.company_id == Company.id
     ).options(selectinload(Internship.requirements)).where(Internship.status == "open")
     
@@ -84,7 +88,7 @@ async def get_recommended_internships(
     internships_rows = result.all()
 
     scored_internships = []
-    for inc, company_name in internships_rows:
+    for inc, comp in internships_rows:
         cache_key = f"fit_score:{student.id}:{inc.id}"
         fit_score_str = await redis_client.get(cache_key) if redis_client else None
         
@@ -94,6 +98,10 @@ async def get_recommended_internships(
             fit_score = await FitScoreCalculator.calculate_fit_score(student.id, inc.id, db)
             if redis_client:
                 await redis_client.setex(cache_key, 3600, str(fit_score))
+
+        gap_analysis = None
+        if student:
+            gap_analysis = await GapAnalyser.analyse_gaps(student.id, inc.id, db)
 
         inc_dict = {
             "id": inc.id,
@@ -113,7 +121,11 @@ async def get_recommended_internships(
             "created_at": inc.created_at,
             "requirements": inc.requirements,
             "match_percentage": round(fit_score, 1),
-            "company_name": company_name
+            "company_name": comp.company_name,
+            "is_individual_verified": comp.is_individual_verified,
+            "verification_method": comp.verification_method,
+            "trust_tier": comp.trust_tier,
+            "gap_analysis": gap_analysis
         }
         scored_internships.append(inc_dict)
 
@@ -128,7 +140,7 @@ async def get_internship(
     redis_client: redis.Redis = Depends(get_redis)
 ):
     from sqlalchemy.orm import selectinload
-    stmt = select(Internship, Company.company_name).join(
+    stmt = select(Internship, Company).join(
         Company, Internship.company_id == Company.id
     ).options(selectinload(Internship.requirements)).where(Internship.id == internship_id)
     
@@ -137,7 +149,7 @@ async def get_internship(
     if not row:
         raise HTTPException(status_code=404, detail="Internship not found")
         
-    inc, company_name = row
+    inc, comp = row
     
     match_percentage = 0.0
     gap_analysis = None
@@ -175,7 +187,10 @@ async def get_internship(
         "created_at": inc.created_at,
         "requirements": inc.requirements,
         "match_percentage": round(match_percentage, 1),
-        "company_name": company_name,
+        "company_name": comp.company_name,
+        "is_individual_verified": comp.is_individual_verified,
+        "verification_method": comp.verification_method,
+        "trust_tier": comp.trust_tier,
         "gap_analysis": gap_analysis
     }
     return inc_dict
@@ -198,7 +213,27 @@ async def create_internship(
             detail="Company not found for the current user."
         )
 
-    # Note: FR3.1 might require `is_admin_verified` to be True to post, but we'll keep it simple if not strictly specified here.
+    # Enforce Level / Tier Capabilities
+    caps = get_capabilities(company.trust_tier, {})
+    if not caps.get("post_internship"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Companies must complete at least Level 2 verification to post internships."
+        )
+
+    max_postings = caps.get("post_internship_max")
+    if max_postings is not None:
+        active_count = await db.scalar(
+            select(func.count(Internship.id)).where(
+                Internship.company_id == company.id,
+                Internship.status != "closed"
+            )
+        )
+        if (active_count or 0) >= max_postings:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Your company has reached the limit of {max_postings} active internship postings allowed for Level {company.trust_tier} verification. Upgrade to Level 3 for unlimited postings, or close an existing posting."
+            )
     
     internship = Internship(
         company_id=company.id,
@@ -324,6 +359,41 @@ async def delete_internship(
     await db.commit()
     return None
 
+
+from pydantic import BaseModel as PydanticBase
+class InternshipStatusUpdate(PydanticBase):
+    status: str  # "open", "closed", "draft"
+
+@router.patch("/{internship_id}/status", status_code=200)
+async def update_internship_status(
+    internship_id: int,
+    payload: InternshipStatusUpdate,
+    current_user: User = Depends(require_role(UserRole.COMPANY_REP)),
+    db: AsyncSession = Depends(get_db)
+):
+    """Close or reopen an internship posting."""
+    result = await db.execute(select(Company).where(Company.user_id == current_user.id))
+    company = result.scalar_one_or_none()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    stmt = select(Internship).where(
+        Internship.id == internship_id, Internship.company_id == company.id
+    )
+    res = await db.execute(stmt)
+    internship = res.scalar_one_or_none()
+    if not internship:
+        raise HTTPException(status_code=404, detail="Internship not found or unauthorized.")
+
+    allowed = {"open", "closed", "draft"}
+    if payload.status not in allowed:
+        raise HTTPException(status_code=400, detail=f"Status must be one of: {', '.join(allowed)}")
+
+    internship.status = payload.status
+    await db.commit()
+    return {"id": internship.id, "status": internship.status}
+
+
 @router.get("/", response_model=List[InternshipPublicResponse])
 async def search_internships(
     job_family_id: int | None = Query(None),
@@ -340,7 +410,7 @@ async def search_internships(
     """Search public internships with filters."""
     from sqlalchemy.orm import selectinload
     
-    query = select(Internship, Company.company_name).join(
+    query = select(Internship, Company).join(
         Company, Internship.company_id == Company.id
     ).options(selectinload(Internship.requirements)).where(Internship.status == "open")
 
@@ -371,7 +441,7 @@ async def search_internships(
         student = student_res.scalar_one_or_none()
 
     response_data = []
-    for inc, company_name in internships_rows:
+    for inc, comp in internships_rows:
         match_percentage = 0.0
         
         if student:
@@ -383,6 +453,10 @@ async def search_internships(
                 match_percentage = await FitScoreCalculator.calculate_fit_score(student.id, inc.id, db)
                 if redis_client:
                     await redis_client.setex(cache_key, 3600, str(match_percentage))
+
+        gap_analysis = None
+        if student:
+            gap_analysis = await GapAnalyser.analyse_gaps(student.id, inc.id, db)
 
         inc_dict = {
             "id": inc.id,
@@ -402,7 +476,11 @@ async def search_internships(
             "created_at": inc.created_at,
             "requirements": inc.requirements,
             "match_percentage": round(match_percentage, 1),
-            "company_name": company_name
+            "company_name": comp.company_name,
+            "is_individual_verified": comp.is_individual_verified,
+            "verification_method": comp.verification_method,
+            "trust_tier": comp.trust_tier,
+            "gap_analysis": gap_analysis
         }
         response_data.append(inc_dict)
 

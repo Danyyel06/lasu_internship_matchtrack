@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, func
+from sqlalchemy import Boolean, DateTime, Integer, String, func, Text
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -37,6 +37,18 @@ class User(Base):
     first_name: Mapped[str] = mapped_column(String(50), nullable=False)
     last_name: Mapped[str] = mapped_column(String(50), nullable=False)
     is_verified: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true"
+    )
+    # Invitation-based activation: set when an Industry Supervisor or Academic
+    # Supervisor account is created by a Company Rep / HOD respectively.
+    # Cleared once the user sets their own password via POST /auth/activate.
+    activation_token: Mapped[str | None] = mapped_column(
+        String(128), nullable=True, unique=True, index=True
+    )
+    is_activated: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
     created_at: Mapped[datetime] = mapped_column(

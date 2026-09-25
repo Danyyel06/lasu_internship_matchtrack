@@ -38,7 +38,7 @@ class InternshipRequirement(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     internship_id: Mapped[int] = mapped_column(Integer, ForeignKey("internships.id", ondelete="CASCADE"), nullable=False)
-    skill_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    skill_name: Mapped[str] = mapped_column(String(255), nullable=False)
     required_level: Mapped[int | None] = mapped_column(Integer, nullable=True) # 1-5 scale
     is_mandatory: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 

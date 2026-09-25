@@ -1,23 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../lib/axios';
 
 interface WeekLog {
   week_number: number;
+  wed_submitted: boolean;
+  sat_submitted: boolean;
   wed_content: { focus_area: string; core_action: string; the_blocker: string; the_takeaway: string } | null;
   sat_content: { focus_area: string; core_action: string; the_blocker: string; the_takeaway: string } | null;
-  wed_photo_url: string | null;
-  sat_photo_url: string | null;
   quiz_score: number | null;
   quiz_passed: boolean | null;
 }
 
 interface Digest {
   student_name: string;
-  student_department: string;
+  department: string;
   month_year: string;
-  logs: WeekLog[];
-  existing_review: { action: 'endorsed' | 'flagged'; flag_comment: string | null; created_at: string } | null;
+  weeks: WeekLog[];
+  existing_review: { action: 'endorsed' | 'flagged'; flag_comment: string | null; created_at_wat: string } | null;
 }
 
 export default function MonthlyDigest() {
@@ -33,23 +33,20 @@ export default function MonthlyDigest() {
   const [expandedWeek, setExpandedWeek] = useState<number | null>(null);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchDigest = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const res = await axios.get(`http://localhost:8000/api/v1/monthly-review/${studentId}/${monthYear}/digest`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await api.get(`/monthly-review/${studentId}/${monthYear}/digest`);
         setDigest(res.data);
         if (res.data.existing_review) {
           setAction(res.data.existing_review.action === 'endorsed' ? 'endorse' : 'flag');
         }
-      } catch {
-        setError('Failed to load digest.');
+      } catch (err: any) {
+        setError(err?.response?.data?.detail || err.message || 'Failed to load digest.');
       } finally {
         setLoading(false);
       }
     };
-    fetch();
+    fetchDigest();
   }, [studentId, monthYear]);
 
   const handleSubmit = async (submitAction: 'endorse' | 'flag') => {
@@ -60,12 +57,8 @@ export default function MonthlyDigest() {
     setSubmitting(true);
     setError(null);
     try {
-      const token = localStorage.getItem('access_token');
-      const endpoint = `http://localhost:8000/api/v1/monthly-review/${studentId}/${monthYear}/${submitAction}`;
-      await axios.post(endpoint,
-        submitAction === 'flag' ? { flag_comment: flagComment } : {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const endpoint = `/monthly-review/${studentId}/${monthYear}/${submitAction}`;
+      await api.post(endpoint, submitAction === 'flag' ? { flag_comment: flagComment } : {});
       navigate('/supervisor/monthly-review');
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'Submission failed. Please try again.');
@@ -94,7 +87,7 @@ export default function MonthlyDigest() {
         </button>
         <h1 className="text-2xl font-bold text-neutral-900">Monthly Digest</h1>
         <p className="text-neutral-500 mt-1">
-          <strong>{digest.student_name}</strong> · {digest.student_department} · {digest.month_year}
+          <strong>{digest.student_name}</strong> · {digest.department} · {digest.month_year}
         </p>
       </div>
 
@@ -107,78 +100,84 @@ export default function MonthlyDigest() {
             <p className="text-sm text-neutral-600 mt-1">Comment: {digest.existing_review.flag_comment}</p>
           )}
           <p className="text-xs text-neutral-400 mt-1">
-            Submitted on {new Date(digest.existing_review.created_at).toLocaleDateString()}
+            Submitted on {new Date(digest.existing_review.created_at_wat).toLocaleDateString()}
           </p>
         </div>
       )}
 
       {/* Week-by-week log cards */}
-      <div className="space-y-4">
-        {digest.logs.map((log) => (
-          <div key={log.week_number} className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-            <button
-              className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-neutral-50 transition-colors"
-              onClick={() => setExpandedWeek(expandedWeek === log.week_number ? null : log.week_number)}
-            >
-              <div className="flex items-center gap-4">
-                <span className="font-semibold text-neutral-900">Week {log.week_number}</span>
-                <div className="flex gap-2">
-                  {log.wed_content
-                    ? <span className="px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 font-medium">Wed ✓</span>
-                    : <span className="px-2 py-0.5 rounded text-xs bg-neutral-100 text-neutral-400 font-medium">Wed –</span>
-                  }
-                  {log.sat_content
-                    ? <span className="px-2 py-0.5 rounded text-xs bg-violet-50 text-violet-700 font-medium">Sat ✓</span>
-                    : <span className="px-2 py-0.5 rounded text-xs bg-neutral-100 text-neutral-400 font-medium">Sat –</span>
-                  }
-                  {log.quiz_score !== null && (
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${log.quiz_passed ? 'bg-success-50 text-success-dark' : 'bg-danger-50 text-danger-dark'}`}>
-                      Quiz: {log.quiz_score}/5
-                    </span>
+      {digest.weeks.length === 0 ? (
+        <div className="bg-white rounded-xl border border-neutral-200 p-10 text-center">
+          <div className="text-4xl mb-3">📋</div>
+          <p className="text-neutral-600 font-medium">No weekly log entries for this month yet.</p>
+          <p className="text-neutral-400 text-sm mt-1">Entries will appear here as the intern submits their weekly logs.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {digest.weeks.map((log) => (
+            <div key={log.week_number} className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
+              <button
+                className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-neutral-50 transition-colors"
+                onClick={() => setExpandedWeek(expandedWeek === log.week_number ? null : log.week_number)}
+              >
+                <div className="flex items-center gap-4">
+                  <span className="font-semibold text-neutral-900">Week {log.week_number}</span>
+                  <div className="flex gap-2">
+                    {log.wed_submitted
+                      ? <span className="px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 font-medium">Wed ✓</span>
+                      : <span className="px-2 py-0.5 rounded text-xs bg-neutral-100 text-neutral-400 font-medium">Wed –</span>
+                    }
+                    {log.sat_submitted
+                      ? <span className="px-2 py-0.5 rounded text-xs bg-violet-50 text-violet-700 font-medium">Sat ✓</span>
+                      : <span className="px-2 py-0.5 rounded text-xs bg-neutral-100 text-neutral-400 font-medium">Sat –</span>
+                    }
+                    {log.quiz_score !== null && (
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${log.quiz_passed ? 'bg-success-50 text-success-dark' : 'bg-danger-50 text-danger-dark'}`}>
+                        Quiz: {log.quiz_score}/5
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <span className="text-neutral-400">{expandedWeek === log.week_number ? '▲' : '▼'}</span>
+              </button>
+
+              {expandedWeek === log.week_number && (
+                <div className="border-t border-neutral-100 p-6 space-y-6">
+                  {/* Wednesday */}
+                  {log.wed_content ? (
+                    <div>
+                      <h3 className="text-sm font-bold text-blue-700 mb-3">Wednesday Check-in</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <LogField label="Focus Area" value={log.wed_content.focus_area} />
+                        <LogField label="Core Action" value={log.wed_content.core_action} />
+                        <LogField label="Blocker" value={log.wed_content.the_blocker} />
+                        <LogField label="Takeaway" value={log.wed_content.the_takeaway} />
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-neutral-400 italic">No Wednesday check-in submitted.</p>
+                  )}
+
+                  {/* Saturday */}
+                  {log.sat_content ? (
+                    <div>
+                      <h3 className="text-sm font-bold text-violet-700 mb-3">Saturday Check-in</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <LogField label="Focus Area" value={log.sat_content.focus_area} />
+                        <LogField label="Core Action" value={log.sat_content.core_action} />
+                        <LogField label="Blocker" value={log.sat_content.the_blocker} />
+                        <LogField label="Takeaway" value={log.sat_content.the_takeaway} />
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-neutral-400 italic">No Saturday check-in submitted.</p>
                   )}
                 </div>
-              </div>
-              <span className="text-neutral-400">{expandedWeek === log.week_number ? '▲' : '▼'}</span>
-            </button>
-
-            {expandedWeek === log.week_number && (
-              <div className="border-t border-neutral-100 p-6 space-y-6">
-                {/* Wednesday */}
-                {log.wed_content && (
-                  <div>
-                    <h3 className="text-sm font-bold text-blue-700 mb-3">Wednesday Check-in</h3>
-                    {log.wed_photo_url && (
-                      <img src={`http://localhost:8000${log.wed_photo_url}`} alt="Wednesday workplace" className="w-full max-h-48 object-cover rounded-lg mb-3 border border-neutral-200" />
-                    )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <LogField label="Focus Area" value={log.wed_content.focus_area} />
-                      <LogField label="Core Action" value={log.wed_content.core_action} />
-                      <LogField label="Blocker" value={log.wed_content.the_blocker} />
-                      <LogField label="Takeaway" value={log.wed_content.the_takeaway} />
-                    </div>
-                  </div>
-                )}
-
-                {/* Saturday */}
-                {log.sat_content && (
-                  <div>
-                    <h3 className="text-sm font-bold text-violet-700 mb-3">Saturday Check-in</h3>
-                    {log.sat_photo_url && (
-                      <img src={`http://localhost:8000${log.sat_photo_url}`} alt="Saturday workplace" className="w-full max-h-48 object-cover rounded-lg mb-3 border border-neutral-200" />
-                    )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <LogField label="Focus Area" value={log.sat_content.focus_area} />
-                      <LogField label="Core Action" value={log.sat_content.core_action} />
-                      <LogField label="Blocker" value={log.sat_content.the_blocker} />
-                      <LogField label="Takeaway" value={log.sat_content.the_takeaway} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Sticky Endorse / Flag Footer */}
       {!isLocked && (

@@ -18,7 +18,7 @@ export default function LogIntervention() {
     const fetchStudent = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const res = await axios.get('http://localhost:8000/api/v1/academic-supervisors/students', {
+        const res = await axios.get('/api/v1/academic-supervisors/students', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const foundStudent = res.data.find((s: any) => s.id === parseInt(studentId || '0'));
@@ -42,7 +42,7 @@ export default function LogIntervention() {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `http://localhost:8000/api/v1/academic-supervisors/students/${studentId}/interventions`,
+        `/api/v1/academic-supervisors/students/${studentId}/interventions`,
         {
           contact_method: method,
           contact_date: date,

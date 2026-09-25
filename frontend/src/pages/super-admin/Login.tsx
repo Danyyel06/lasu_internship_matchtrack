@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../lib/axios';
 
 export default function SuperAdminLogin() {
   const [email, setEmail] = useState('');
@@ -16,7 +16,7 @@ export default function SuperAdminLogin() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:8000/api/v1/auth/login', {
+      const response = await api.post('/auth/login', {
         email: email,
         password: password
       });

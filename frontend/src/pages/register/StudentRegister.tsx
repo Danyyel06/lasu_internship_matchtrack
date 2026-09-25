@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
 
 export default function StudentRegister() {
   const navigate = useNavigate();
@@ -10,6 +10,28 @@ export default function StudentRegister() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+
+  // CGPA extraction state
+  const [cgpaExtracting, setCgpaExtracting] = useState(false);
+  const [cgpaVerified, setCgpaVerified] = useState(false);
+  const [cgpaFileName, setCgpaFileName] = useState('');
+  const [cgpaError, setCgpaError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [faculties, setFaculties] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchFaculties = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/api/v1/auth/faculties`);
+        setFaculties(res.data);
+      } catch (err) {
+        console.error("Failed to fetch faculties", err);
+      }
+    };
+    fetchFaculties();
+  }, []);
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -28,11 +50,79 @@ export default function StudentRegister() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
+    setFormData((prev) => {
+      const newData = {
+        ...prev,
+        [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
+      };
+
+      if (name === 'faculty') {
+        newData.department = '';
+        const selectedFaculty = faculties.find(f => f.name === value);
+        if (selectedFaculty) {
+          setDepartments(selectedFaculty.departments);
+        } else {
+          setDepartments([]);
+        }
+      }
+
+      return newData;
     });
+
+    // If the user manually edits the CGPA field, clear the verified badge
+    if (name === 'cgpa') {
+      setCgpaVerified(false);
+    }
     setError('');
+  };
+
+  const handleCgpaFileUpload = async (file: File) => {
+    if (file.type !== 'application/pdf') {
+      setCgpaError('Please upload a PDF file.');
+      return;
+    }
+    setCgpaError('');
+    setCgpaExtracting(true);
+    setCgpaFileName(file.name);
+    setCgpaVerified(false);
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    try {
+      const res = await axios.post(`${API_BASE}/api/v1/transcript/extract-cgpa/`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data.success) {
+        setFormData((prev) => ({ ...prev, cgpa: res.data.cgpa }));
+        setCgpaVerified(true);
+      } else {
+        setCgpaError(res.data.error || 'Could not extract CGPA from this PDF.');
+      }
+    } catch {
+      setCgpaError('Could not extract CGPA from this PDF. Please verify its format or enter your CGPA manually.');
+    } finally {
+      setCgpaExtracting(false);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleCgpaFileUpload(file);
+    // Reset the input so the same file can be re-selected
+    e.target.value = '';
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleCgpaFileUpload(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
   };
 
   const nextStep = () => {
@@ -264,22 +354,9 @@ export default function StudentRegister() {
                     className="w-full p-3 rounded-xl border border-neutral-200 focus:ring-2 focus:ring-violet-600 focus:border-transparent outline-none text-sm bg-white"
                   >
                     <option value="">Select your faculty</option>
-                    <option value="Science">Science</option>
-                    <option value="Engineering">Engineering</option>
-                    <option value="Management Sciences">Management Sciences</option>
-                    <option value="Arts">Arts</option>
-                    <option value="Law">Law</option>
-                    <option value="Social Sciences">Social Sciences</option>
-                    <option value="Education">Education</option>
-                    <option value="Communication">Communication & Media Studies</option>
-                    <option value="Clinical Sciences">Clinical Sciences</option>
-                    <option value="Basic Medical Sciences">Basic Medical Sciences</option>
-                    <option value="Basic Clinical Sciences">Basic Clinical Sciences</option>
-                    <option value="Dentistry">Dentistry</option>
-                    <option value="Agriculture">Agriculture</option>
-                    <option value="Environmental Sciences">Environmental Sciences</option>
-                    <option value="Transport">School of Transport & Logistics</option>
-                    <option value="Computing">School of Computing</option>
+                    {faculties.map((f, i) => (
+                      <option key={i} value={f.name}>{f.name}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -289,17 +366,13 @@ export default function StudentRegister() {
                     name="department"
                     value={formData.department}
                     onChange={handleChange}
-                    className="w-full p-3 rounded-xl border border-neutral-200 focus:ring-2 focus:ring-violet-600 focus:border-transparent outline-none text-sm bg-white"
+                    disabled={!formData.faculty}
+                    className="w-full p-3 rounded-xl border border-neutral-200 focus:ring-2 focus:ring-violet-600 focus:border-transparent outline-none text-sm bg-white disabled:bg-neutral-50 disabled:text-neutral-400"
                   >
                     <option value="">Select your department</option>
-                    <option value="Computer Science">Computer Science</option>
-                    <option value="Mathematics">Mathematics</option>
-                    <option value="Physics">Physics</option>
-                    <option value="Chemistry">Chemistry</option>
-                    <option value="Biological Sciences">Biological Sciences</option>
-                    <option value="Business Administration">Business Administration</option>
-                    <option value="Accounting">Accounting</option>
-                    <option value="Mass Communication">Mass Communication</option>
+                    {departments.map((d, i) => (
+                      <option key={i} value={d}>{d}</option>
+                    ))}
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -323,16 +396,93 @@ export default function StudentRegister() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-neutral-900">Current CGPA (approx.)</label>
-                    <input
-                      type="text"
-                      name="cgpa"
-                      value={formData.cgpa}
-                      onChange={handleChange}
-                      placeholder="e.g. 3.50"
-                      className="w-full p-3 rounded-xl border border-neutral-200 focus:ring-2 focus:ring-violet-600 focus:border-transparent outline-none text-sm"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="cgpa"
+                        value={formData.cgpa}
+                        onChange={handleChange}
+                        placeholder="e.g. 3.50"
+                        className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-violet-600 focus:border-transparent outline-none text-sm ${
+                          cgpaVerified
+                            ? 'border-emerald-300 bg-emerald-50/40 text-violet-700 font-medium'
+                            : 'border-neutral-200'
+                        }`}
+                      />
+                      {cgpaVerified && (
+                        <div className="flex items-center gap-1 mt-1.5">
+                          <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                          <span className="text-xs font-medium text-emerald-600">Verified from PDF</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {/* CGPA Transcript Upload Zone */}
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`w-full border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all duration-200 ${
+                    cgpaExtracting
+                      ? 'border-violet-300 bg-violet-50/60'
+                      : cgpaVerified
+                        ? 'border-emerald-300 bg-emerald-50/40 hover:border-emerald-400'
+                        : 'border-neutral-200 bg-neutral-50/50 hover:border-violet-400 hover:bg-violet-50/30'
+                  }`}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handleFileInputChange}
+                    className="hidden"
+                  />
+
+                  {cgpaExtracting ? (
+                    <div className="flex flex-col items-center gap-2 py-1">
+                      <svg className="animate-spin w-6 h-6 text-violet-500" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      <span className="text-sm font-medium text-violet-600">Extracting CGPA…</span>
+                      <span className="text-xs text-neutral-400 truncate max-w-[200px]">{cgpaFileName}</span>
+                    </div>
+                  ) : cgpaVerified ? (
+                    <div className="flex flex-col items-center gap-1.5 py-1">
+                      <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                        <svg className="w-4.5 h-4.5 text-emerald-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      </div>
+                      <span className="text-sm font-medium text-emerald-600">CGPA extracted successfully</span>
+                      <span className="text-xs text-neutral-400 truncate max-w-[200px]">{cgpaFileName}</span>
+                      <span className="text-xs text-neutral-400">Click to upload a different transcript</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1.5 py-1">
+                      <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
+                        <svg className="w-4.5 h-4.5 text-violet-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.338-2.32 3.75 3.75 0 013.826 4.597A4.499 4.499 0 0118 19.5H6.75z" />
+                        </svg>
+                      </div>
+                      <span className="text-sm font-medium text-neutral-700">Validate your CGPA with your transcript (PDF)</span>
+                      <span className="text-xs text-neutral-400">Drag & drop or click to browse</span>
+                    </div>
+                  )}
+                </div>
+
+                {cgpaError && (
+                  <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-xl">
+                    <svg className="w-4 h-4 text-red-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                    <p className="text-xs text-red-600">{cgpaError}</p>
+                  </div>
+                )}
 
                 <div className="pt-4 flex gap-3">
                   <button

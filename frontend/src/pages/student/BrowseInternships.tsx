@@ -13,30 +13,46 @@ interface Internship {
   duration_weeks: number;
   match_percentage: number;
   created_at: string;
+  is_individual_verified?: boolean;
+  verification_method?: string;
+  trust_tier?: number;
+  gap_analysis?: {
+    skill_name: string;
+    required_level: number;
+    student_level: number;
+    meets_requirement: boolean;
+  }[];
 }
 
 export default function BrowseInternships() {
   const [internships, setInternships] = useState<Internship[]>([]);
+  const [hasAcceptedPlacement, setHasAcceptedPlacement] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTrack, setFilterTrack] = useState('All');
 
   useEffect(() => {
-    const fetchInternships = async () => {
+    const fetchData = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const res = await api.get('/internships/', {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
-        });
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         
-        setInternships(res.data);
+        const [internshipsRes, applicationsRes] = await Promise.all([
+          api.get('/internships/', { headers }),
+          api.get('/applications/mine', { headers })
+        ]);
+        
+        setInternships(internshipsRes.data);
+        
+        const isPlaced = applicationsRes.data.some((app: any) => app.status === 'accepted' || app.status === 'Accepted');
+        setHasAcceptedPlacement(isPlaced);
       } catch (error) {
-        console.error("Failed to load internships", error);
+        console.error("Failed to load data", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchInternships();
+    fetchData();
   }, []);
 
   const filteredInternships = internships.filter(internship => 
@@ -82,6 +98,20 @@ export default function BrowseInternships() {
       {/* Results */}
       {loading ? (
         <div className="flex justify-center p-12"><div className="animate-spin text-4xl">⏳</div></div>
+      ) : hasAcceptedPlacement ? (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-8 text-center mt-6">
+          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
+            🎉
+          </div>
+          <h2 className="text-xl font-bold text-green-900 mb-2">You've been placed!</h2>
+          <p className="text-green-800 mb-6 max-w-md mx-auto">
+            Congratulations! Since you have already accepted an internship placement, you can no longer apply for other roles. 
+            It's time to focus on your new role.
+          </p>
+          <Link to="/student/log" className="inline-flex items-center justify-center px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors">
+            Go to Evidence Log
+          </Link>
+        </div>
       ) : (
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredInternships.map((internship) => (
@@ -93,7 +123,18 @@ export default function BrowseInternships() {
                     {internship.company_name ? internship.company_name.charAt(0).toUpperCase() : 'C'}
                   </div>
                   <div>
-                    <h2 className="font-bold text-neutral-900">{internship.company_name || 'Unknown'}</h2>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h2 className="font-bold text-neutral-900">{internship.company_name || 'Unknown'}</h2>
+                      {internship.is_individual_verified ? (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200" title="This internship is hosted by an individual practitioner/sole host">
+                          👤 Individual Host
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-neutral-100 text-neutral-600 border border-neutral-200" title="Incorporated company / organisation">
+                          🏢 Company
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-neutral-500">{new Date(internship.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
@@ -133,6 +174,27 @@ export default function BrowseInternships() {
                     style={{ width: `${internship.match_percentage}%` }}
                   />
                 </div>
+                {internship.gap_analysis && internship.gap_analysis.length > 0 && (
+                  <div className="space-y-1.5 mt-3 pt-3 border-t border-neutral-200/60">
+                    <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 block">Skill Gap Analysis</span>
+                    <div className="flex flex-col gap-1.5">
+                      {internship.gap_analysis.map((gap, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs">
+                          <span className="font-medium text-neutral-700">{gap.skill_name}</span>
+                          {gap.meets_requirement ? (
+                            <span className="text-green-600 font-bold flex items-center gap-1">
+                              ✅ Met
+                            </span>
+                          ) : (
+                            <span className="text-red-600 font-bold flex items-center gap-1">
+                              ❌ Missing
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

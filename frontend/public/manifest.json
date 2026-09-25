@@ -1,0 +1,65 @@
+{
+  "id": "/",
+  "name": "LASU InternConnect",
+  "short_name": "InternConnect",
+  "description": "Lagos State University SIWES Internship Management & Development Platform",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "categories": [
+    "education",
+    "productivity",
+    "business"
+  ],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Browse Internships",
+      "short_name": "Internships",
+      "description": "Search and apply for SIWES placements",
+      "url": "/student/browse",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Weekly Evidence Log",
+      "short_name": "Pulse Log",
+      "description": "Submit your weekly SIWES progress log",
+      "url": "/student/log",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Company Dashboard",
+      "short_name": "Company",
+      "description": "Access your company portal",
+      "url": "/company/dashboard",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

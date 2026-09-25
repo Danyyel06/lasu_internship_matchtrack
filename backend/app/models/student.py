@@ -25,7 +25,9 @@ class Student(Base):
     gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
     profile_photo_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     preliminary_fit_score: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    verified_fit_score: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
     onboarding_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    skill_verification_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     current_tier: Mapped[str | None] = mapped_column(String(10), nullable=True)  # T1, T2, T3
     project_count: Mapped[int | None] = mapped_column(Integer, default=0, server_default="0")
     coursework_count: Mapped[int | None] = mapped_column(Integer, default=0, server_default="0")
@@ -54,5 +56,9 @@ class StudentSkill(Base):
     claimed_level: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1-5
     verified_level: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1-5, set after diagnostic
     test_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    verification_status: Mapped[str] = mapped_column(String(20), default="unverified", server_default="unverified")
+    successful_reverify_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cooldown_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     student: Mapped[Student] = relationship("Student", back_populates="skills")

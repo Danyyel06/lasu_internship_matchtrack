@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import api from '../../lib/axios';
 
 interface Alert {
   id: number;
@@ -11,6 +12,7 @@ interface Alert {
 }
 
 export default function SupervisorAlerts() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'All' | 'Unread'>('All');
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,9 +23,7 @@ export default function SupervisorAlerts() {
 
   const fetchAlerts = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/api/v1/notifications', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
-      });
+      const res = await api.get('/notifications');
       setAlerts(res.data);
     } catch (err) {
       console.error('Failed to fetch alerts', err);
@@ -34,12 +34,19 @@ export default function SupervisorAlerts() {
 
   const markAsRead = async (id: number) => {
     try {
-      await axios.post(`http://localhost:8000/api/v1/notifications/${id}/read`, {}, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
-      });
+      await api.post(`/notifications/${id}/read`);
       setAlerts(alerts.map(a => a.id === id ? { ...a, is_read: true } : a));
     } catch (err) {
       console.error('Failed to mark alert as read', err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      // Optimistic UI update
+      setAlerts(prev => prev.map(a => ({ ...a, is_read: true })));
+    } catch (err) {
+      console.error('Failed to mark all as read', err);
     }
   };
 
@@ -73,7 +80,15 @@ export default function SupervisorAlerts() {
           <h1 className="text-2xl font-bold text-neutral-900">Notifications</h1>
           <p className="text-neutral-500 mt-1">Updates on your assigned interns and framework approvals.</p>
         </div>
-        <button className="text-sm font-medium text-blue-600 hover:text-blue-700">⚙️ Settings</button>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={markAllAsRead}
+            className="text-sm font-medium text-neutral-600 hover:text-neutral-900 py-2 px-4 rounded-lg border border-neutral-300 hover:bg-neutral-50 transition-colors"
+          >
+            Mark all as read
+          </button>
+          <button className="text-sm font-medium text-blue-600 hover:text-blue-700">⚙️ Settings</button>
+        </div>
       </div>
 
       <div className="border-b border-neutral-200">
@@ -114,8 +129,11 @@ export default function SupervisorAlerts() {
               filteredAlerts.map(alert => (
                 <li 
                   key={alert.id} 
-                  onClick={() => !alert.is_read && markAsRead(alert.id)}
-                  className={`p-5 transition-colors hover:bg-neutral-50 ${!alert.is_read ? 'cursor-pointer' : ''} ${alert.is_read ? 'opacity-70' : 'bg-blue-50/30'}`}
+                  onClick={() => {
+                    if (!alert.is_read) markAsRead(alert.id);
+                    navigate('/supervisor/interns');
+                  }}
+                  className={`p-5 transition-colors hover:bg-neutral-50 cursor-pointer ${alert.is_read ? 'opacity-70' : 'bg-blue-50/30'}`}
                 >
                   <div className="flex items-start gap-4">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${getIconColor(alert.type)}`}>

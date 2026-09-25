@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import api from '../../lib/axios';
 
 /* ──────────────────────── Nigerian States ──────────────────────── */
 const NIGERIAN_STATES = [
@@ -311,18 +309,16 @@ export default function CompanyOnboardingWizard() {
 
   const handleSubmit = async () => {
     try {
-      const token = localStorage.getItem('access_token');
       // POST to onboarding endpoint
-      await axios.post(
-        `${API_BASE}/api/v1/companies/onboarding`,
+      await api.post(
+        `/companies/onboarding`,
         { 
           registration_no: formData.cacNumber,
           industry: formData.industrySector,
           company_address: formData.businessAddress,
           company_website: formData.website,
           company_size: formData.companySize
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
+        }
       );
       setShowSuccess(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -360,7 +356,11 @@ export default function CompanyOnboardingWizard() {
           <p className="text-sm text-gray-500 mb-8">You're ready to begin your journey.</p>
 
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => {
+              // Update local storage or trigger a refresh if needed
+              navigate('/company/dashboard');
+              window.location.reload(); // Force refresh to update navigation state
+            }}
             className="w-full py-3 bg-green-700 hover:bg-green-800 text-white font-medium rounded-lg transition-colors text-sm"
           >
             Done
@@ -1045,73 +1045,14 @@ function StepAgreement({
   update: <K extends keyof CompanyFormData>(key: K, value: CompanyFormData[K]) => void;
   onSubmit: () => void;
 }) {
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   return (
     <section className="space-y-6">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Almost there — set your credentials.</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Almost there — confirm agreements.</h1>
         <p className="text-sm text-gray-500 mt-1 leading-relaxed">
-          Create your login credentials and agree to the LASU SIWES partner terms.
+          Please agree to the LASU SIWES partner terms to complete your onboarding.
         </p>
-      </div>
-
-      <div className="space-y-5">
-        <TextField
-          label="Username"
-          required
-          placeholder="Choose a username (letters, numbers, underscores)"
-          helper="Used alongside your email to sign in. Choose something professional."
-          value={formData.username}
-          onChange={(v) => update('username', v)}
-        />
-
-        {/* Password with toggle */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Password <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              value={formData.password}
-              onChange={(e) => update('password', e.target.value)}
-              placeholder="Min. 8 characters"
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent pr-16 transition-shadow"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 font-medium"
-            >
-              {showPassword ? 'Hide' : 'Show'}
-            </button>
-          </div>
-        </div>
-
-        {/* Confirm password */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Confirm password <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <input
-              type={showConfirm ? 'text' : 'password'}
-              value={formData.confirmPassword}
-              onChange={(e) => update('confirmPassword', e.target.value)}
-              placeholder="Repeat your password"
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent pr-16 transition-shadow"
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirm(!showConfirm)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 font-medium"
-            >
-              {showConfirm ? 'Hide' : 'Show'}
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Divider */}
@@ -1181,10 +1122,11 @@ function StepAgreement({
       {/* Submit button */}
       <button
         type="button"
+        disabled={!formData.agreeTerms || !formData.agreeAuthorised || !formData.agreeConsent}
         onClick={onSubmit}
-        className="w-full py-3 bg-green-700 hover:bg-green-800 text-white font-medium rounded-lg transition-colors text-sm"
+        className="w-full py-3 bg-green-700 hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors text-sm"
       >
-        Submit company registration →
+        Complete company profile →
       </button>
     </section>
   );

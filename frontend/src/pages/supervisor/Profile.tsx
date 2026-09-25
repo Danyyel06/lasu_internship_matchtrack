@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../lib/axios';
 import { useNavigate } from 'react-router-dom';
 
 export default function SupervisorProfile() {
@@ -15,10 +15,7 @@ export default function SupervisorProfile() {
 
   const fetchProfile = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const res = await axios.get('http://localhost:8000/api/v1/supervisors/profile', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get('/supervisors/profile');
       setProfile(res.data);
       setEditForm({
         first_name: res.data.first_name || '',
@@ -34,10 +31,7 @@ export default function SupervisorProfile() {
 
   const handleUpdate = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.put('http://localhost:8000/api/v1/supervisors/profile', editForm, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.put('/supervisors/profile', editForm);
       setIsEditing(false);
       fetchProfile();
     } catch (err) {

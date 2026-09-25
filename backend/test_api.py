@@ -1,30 +1,31 @@
 import asyncio
-from app.db.session import AsyncSessionLocal
-from app.models.user import User
+import httpx
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
+from app.models.user import User
 from app.core.security import create_access_token
-import urllib.request
-import json
 
-async def main():
-    async with AsyncSessionLocal() as db:
-        user = (await db.execute(select(User).where(User.email == 'droseni@gmail.com'))).scalar_one_or_none()
-        if not user:
-            print("User not found!")
-            return
-        token = create_access_token(data={"sub": str(user.id)})
+async def test():
+    engine = create_async_engine("postgresql+asyncpg://postgres:11postgres26@localhost:5432/lasu_internship", echo=False)
+    async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     
-    req = urllib.request.Request(
-        'http://localhost:8000/api/v1/academic-supervisors/frameworks',
-        headers={'Authorization': f'Bearer {token}'}
-    )
-    try:
-        with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read().decode())
-            print("Status Code:", response.status)
-            print("Response:", data)
-    except Exception as e:
-        print("Error:", e)
+    async with async_session() as db:
+        user_res = await db.execute(select(User).where(User.id == 7))  # industry supervisor
+        user = user_res.scalar_one_or_none()
+        
+    if not user:
+        print("User 7 not found")
+        return
+        
+    token = create_access_token(data={"sub": str(user.id), "role": user.role.value})
+    
+    async with httpx.AsyncClient() as client:
+        url = "http://localhost:8000/api/v1/monthly-review/7/2026-07/digest"
+        print("Fetching", url)
+        res = await client.get(url, headers={"Authorization": f"Bearer {token}"})
+        print(res.status_code)
+        print(res.text)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(test())

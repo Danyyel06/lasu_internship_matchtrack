@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, constr, HttpUrl
 
@@ -17,6 +17,7 @@ class JobFamilyResponse(BaseModel):
     name: str
     description: Optional[str] = None
     default_weights: Optional[Dict[str, Any]] = None
+    coursework_options: Optional[List[str]] = []
     sub_roles: List[SubRoleResponse] = []
 
     model_config = {"from_attributes": True}
@@ -33,13 +34,6 @@ class OnboardingRequest(BaseModel):
     date_of_birth: Optional[date] = None
     gender: Optional[str] = None
     
-    # Step 2: Academic
-    matric_no: str
-    faculty: str
-    department: str
-    level: int
-    cgpa: float = Field(..., ge=0.0, le=5.0)
-
     # Step 3 & 4: Job Family & Sub Role
     job_family_id: int
     selected_sub_role_id: Optional[int] = None
@@ -64,7 +58,9 @@ class StudentResponse(BaseModel):
     department: str
     level: Optional[int]
     cgpa: Optional[float]
-    preliminary_fit_score: Optional[float]
-    current_tier: Optional[str]
+    preliminary_fit_score: Optional[float] = None
+    verified_fit_score: Optional[float] = None
+    current_tier: Optional[str] = None
+    skill_verification_completed_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

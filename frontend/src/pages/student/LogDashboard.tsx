@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../../lib/axios';
 
 // Status values returned by the backend /logs/current-week endpoint
 // wed_status / sat_status: "not_started" | "submitted" | "locked"
@@ -36,38 +36,74 @@ export default function LogDashboard() {
   const [loading, setLoading] = useState(true);
   const [noPlacement, setNoPlacement] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const [retryMessage, setRetryMessage] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchData = useCallback(async (showLoader = false) => {
+    if (showLoader) setLoading(true);
+    try {
+      const [weekRes, logsRes] = await Promise.all([
+        api.get('/logs/current-week'),
+        api.get('/logs/my-logs'),
+      ]);
+      setCurrentWeek(weekRes.data);
+      setLogs(logsRes.data);
+      setError(null);
+    } catch (err: any) {
+      if (err?.response?.status === 400) {
+        setNoPlacement(true);
+      } else {
+        setError('Failed to load log data. Please check your connection and try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem('access_token');
-        const headers = { Authorization: `Bearer ${token}` };
+    fetchData(true);
+  }, [fetchData]);
 
-        const [weekRes, logsRes] = await Promise.all([
-          axios.get('http://localhost:8000/api/v1/logs/current-week', { headers }),
-          axios.get('http://localhost:8000/api/v1/logs/my-logs', { headers }),
-        ]);
-        setCurrentWeek(weekRes.data);
-        setLogs(logsRes.data);
-      } catch (err: any) {
-        if (err?.response?.status === 400) {
-          setNoPlacement(true);
-        } else {
-          setError('Failed to load log data. Please check your connection and try again.');
-        }
-      } finally {
-        setLoading(false);
+  // Auto-poll every 8 seconds while quiz is generating
+  useEffect(() => {
+    if (currentWeek?.quiz_status === 'generating') {
+      pollRef.current = setInterval(() => fetchData(false), 8000);
+    } else {
+      if (pollRef.current) clearInterval(pollRef.current);
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [currentWeek?.quiz_status, fetchData]);
+
+  const handleRetryQuiz = async () => {
+    setRetrying(true);
+    setRetryMessage(null);
+    try {
+      const res = await api.post('/logs/retry-quiz');
+      if (res.data.status === 'generated') {
+        setRetryMessage('✅ Quiz generated! Refreshing…');
+        await fetchData(false);
+      } else if (res.data.status === 'already_generated') {
+        setRetryMessage('Quiz is already available. Refreshing…');
+        await fetchData(false);
+      } else {
+        setRetryMessage('⚠️ Generation failed. Please wait a moment and try again.');
       }
-    };
-    fetchData();
-  }, []);
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      setRetryMessage(`⚠️ ${typeof detail === 'string' ? detail : 'Retry failed. Please try again.'}`);
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const StatusBadge = ({ status }: { status: string }) => {
     if (status === 'submitted') return <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-100">✓ Submitted</span>;
     if (status === 'not_started') return <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">⏳ Pending</span>;
     if (status === 'locked') return <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-400">🔒 Locked</span>;
     if (status === 'available') return <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">🧠 Ready</span>;
-    if (status === 'generating') return <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">⚙️ Generating...</span>;
+    if (status === 'generating') return <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">⚙️ Generating…</span>;
+    if (status === 'failed') return <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-100">⚠️ Failed</span>;
     if (status === 'completed') return <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-600">✅ Done</span>;
     if (status === 'unavailable') return <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-400">—</span>;
     return null;
@@ -112,7 +148,7 @@ export default function LogDashboard() {
         <h1 className="text-2xl font-bold text-neutral-900 mb-6">Evidence Log</h1>
         <div className="bg-danger-50 border border-danger-base rounded-xl p-6 text-center">
           <p className="text-danger-dark font-medium">{error}</p>
-          <button onClick={() => window.location.reload()} className="mt-4 text-sm text-blue-600 hover:underline">
+          <button onClick={() => fetchData(true)} className="mt-4 text-sm text-blue-600 hover:underline">
             Retry
           </button>
         </div>
@@ -215,8 +251,7 @@ export default function LogDashboard() {
 
             {/* AI Quiz Card */}
             <div className={`bg-white rounded-xl border-2 p-6 shadow-sm transition-all ${
-              currentWeek.quiz_status === 'completed' && currentWeek.quiz_result?.passed ? 'border-green-300' :
-              currentWeek.quiz_status === 'completed' && !currentWeek.quiz_result?.passed ? 'border-red-300' :
+              currentWeek.quiz_status === 'completed' ? 'border-blue-300' :
               currentWeek.quiz_status === 'available' ? 'border-amber-300' :
               'border-dashed border-neutral-200 opacity-60'
             }`}>
@@ -228,19 +263,26 @@ export default function LogDashboard() {
                 </div>
                 <StatusBadge status={currentWeek.quiz_status} />
               </div>
-              <p className="text-xs text-neutral-600 mb-4 leading-relaxed">
+              <p className="text-xs text-neutral-600 mb-3 leading-relaxed">
                 {currentWeek.quiz_status === 'unavailable' || currentWeek.quiz_status === 'locked'
                   ? 'Submit your Saturday check-in to unlock the AI quiz.'
                   : currentWeek.quiz_status === 'generating'
-                  ? 'Your quiz is being generated by AI. Check back in a moment.'
+                  ? 'Your quiz is being generated by AI. Auto-refreshing every 8 seconds…'
+                  : currentWeek.quiz_status === 'failed'
+                  ? 'Quiz generation failed. Tap Retry to try again.'
                   : currentWeek.quiz_status === 'available'
                   ? 'Your quiz is ready! Do not switch tabs during the quiz.'
                   : currentWeek.quiz_result?.failed_due_to_tab_switch
                   ? 'Auto-failed (tab switch detected).'
-                  : currentWeek.quiz_result?.passed
-                  ? `Passed with ${currentWeek.quiz_result.score}/5. Well done!`
-                  : `Score: ${currentWeek.quiz_result?.score ?? 0}/5. Better luck next week.`}
+                  : currentWeek.quiz_status === 'completed'
+                  ? `Score: ${currentWeek.quiz_result?.score ?? 0}/5.`
+                  : 'Your quiz is pending.'}
               </p>
+
+              {retryMessage && (
+                <p className="text-xs text-neutral-600 mb-3 bg-neutral-50 rounded-lg px-3 py-2">{retryMessage}</p>
+              )}
+
               {currentWeek.quiz_status === 'available' ? (
                 <button
                   onClick={handleQuizStart}
@@ -248,15 +290,21 @@ export default function LogDashboard() {
                 >
                   Start Quiz →
                 </button>
-              ) : currentWeek.quiz_status === 'generating' ? (
-                <button onClick={() => window.location.reload()} className="block w-full text-center py-2 border border-blue-300 text-blue-600 text-sm font-semibold rounded-lg hover:bg-blue-50 transition-colors">
-                  Refresh
+              ) : currentWeek.quiz_status === 'generating' || currentWeek.quiz_status === 'failed' ? (
+                <button
+                  onClick={handleRetryQuiz}
+                  disabled={retrying}
+                  className={`block w-full text-center py-2 border text-sm font-semibold rounded-lg disabled:opacity-50 transition-colors ${
+                    currentWeek.quiz_status === 'failed'
+                      ? 'border-red-300 text-red-600 hover:bg-red-50'
+                      : 'border-blue-300 text-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  {retrying ? 'Generating…' : 'Retry Now'}
                 </button>
               ) : currentWeek.quiz_status === 'completed' ? (
-                <div className={`py-2 text-center text-sm font-medium rounded-lg ${
-                  currentWeek.quiz_result?.passed ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'
-                }`}>
-                  {currentWeek.quiz_result?.passed ? '✓ Passed' : '✗ Failed'}
+                <div className="py-2 text-center text-sm font-medium rounded-lg text-blue-700 bg-blue-50">
+                  Completed
                 </div>
               ) : (
                 <div className="py-2 text-center text-sm text-neutral-400">🔒 Locked</div>
@@ -306,10 +354,8 @@ export default function LogDashboard() {
                       </div>
                     </div>
                     {log.quiz_score !== null && (
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                        log.quiz_passed ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-                      }`}>
-                        🧠 Quiz: {log.quiz_score}/5 — {log.quiz_passed ? 'Passed' : 'Failed'}
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+                        🧠 Quiz: {log.quiz_score}/5
                       </span>
                     )}
                   </div>

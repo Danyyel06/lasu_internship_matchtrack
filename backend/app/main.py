@@ -1,10 +1,15 @@
 import os
+from dotenv import load_dotenv
+
+# Load .env before anything else so os.getenv() calls pick up the values
+load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
+from app.core.config import settings
 
 app = FastAPI(
     title="LASU Internship Platform API",
@@ -14,9 +19,12 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+configured_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite dev server
+    allow_origins=configured_origins,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.\d+\.\d+\.\d+)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

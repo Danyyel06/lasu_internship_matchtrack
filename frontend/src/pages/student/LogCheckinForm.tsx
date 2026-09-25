@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../../lib/axios';
 
 // ─── Field definitions with per-field limit type ────────────────────────────
 // limitType: 'chars' uses maxLength; 'words' uses a live word counter.
@@ -72,6 +72,56 @@ export default function LogCheckinForm() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Live camera overlay state
+  const [showLiveCamera, setShowLiveCamera] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      setShowLiveCamera(true);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        }
+      }, 50);
+    } catch (err) {
+      console.error("Camera access error:", err);
+      // Fallback to the file input if no camera available
+      cameraInputRef.current?.click();
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+    }
+    setShowLiveCamera(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => {
+          if (blob) {
+            const file = new File([blob], 'camera_capture.jpg', { type: 'image/jpeg' });
+            uploadPhoto(file, 'camera');
+          }
+        }, 'image/jpeg');
+      }
+      stopCamera();
+    }
+  };
+
   const handleFieldChange = (key: string, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }));
   };
@@ -85,23 +135,25 @@ export default function LogCheckinForm() {
     setPhotoPreview(objectUrl);
     setArtifactId(null);
     try {
-      const token = localStorage.getItem('access_token');
       const formData = new FormData();
       formData.append('file', file);
       formData.append('upload_source', source);
-      const res = await axios.post(
-        'http://localhost:8000/api/v1/logs/artifact-upload',
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data',
-          },
-        }
+      const res = await axiosInstance.post(
+        '/logs/artifact-upload',
+        formData
+        // Do NOT set Content-Type here — axios auto-sets multipart/form-data
+        // with the correct boundary when given a FormData body
       );
       setArtifactId(res.data.artifact_id);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Photo upload failed. Please try again.');
+      const detail = err?.response?.data?.detail;
+      setError(
+        typeof detail === 'string'
+          ? detail
+          : Array.isArray(detail)
+          ? detail.map((d: any) => d?.msg || JSON.stringify(d)).join('; ')
+          : 'Photo upload failed. Please try again.'
+      );
       setPhotoPreview(null);
     } finally {
       setUploading(false);
@@ -143,23 +195,26 @@ export default function LogCheckinForm() {
 
     setSubmitting(true);
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.post(
-        `http://localhost:8000/api/v1/logs/${type}`,
+      await axiosInstance.post(
+        `/logs/${type}`,
         {
           focus_area: form.focus_area,
           core_action: form.core_action,
           the_blocker: form.the_blocker,
           the_takeaway: form.the_takeaway,
-          artifact_id: artifactId,
+          artifact_id: artifactId ?? null,
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { 'Content-Type': 'application/json' } }
       );
       navigate('/student/log');
     } catch (err: any) {
+      const detail = err?.response?.data?.detail;
       setError(
-        err?.response?.data?.detail ||
-        'Submission failed. Please check your connection and try again.'
+        typeof detail === 'string'
+          ? detail
+          : Array.isArray(detail)
+          ? detail.map((d: any) => d?.msg || JSON.stringify(d)).join('; ')
+          : 'Submission failed. Please check your connection and try again.'
       );
     } finally {
       setSubmitting(false);
@@ -305,7 +360,7 @@ export default function LogCheckinForm() {
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => cameraInputRef.current?.click()}
+              onClick={startCamera}
               disabled={uploading}
               className={`py-3 rounded-xl text-sm font-semibold border-2 border-dashed transition-colors ${
                 artifactId
@@ -356,6 +411,27 @@ export default function LogCheckinForm() {
           </p>
         )}
       </form>
+      
+      {/* Live Camera Modal */}
+      {showLiveCamera && (
+        <div className="fixed inset-0 bg-black z-[9999] flex flex-col">
+          <div className="p-4 flex justify-between items-center bg-black/50 absolute top-0 left-0 right-0 z-10">
+            <h3 className="text-white font-bold">Live Camera</h3>
+            <button onClick={stopCamera} className="text-white bg-neutral-800 rounded-full w-8 h-8 flex items-center justify-center font-bold">✕</button>
+          </div>
+          <div className="flex-1 flex items-center justify-center bg-black overflow-hidden relative">
+            <video ref={videoRef} className="w-full h-full object-contain" playsInline />
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+          <div className="p-6 pb-12 flex justify-center bg-black absolute bottom-0 left-0 right-0">
+            <button
+              type="button"
+              onClick={capturePhoto}
+              className="w-16 h-16 bg-white rounded-full border-4 border-neutral-300 shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

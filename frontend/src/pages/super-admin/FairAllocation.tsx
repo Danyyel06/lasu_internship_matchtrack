@@ -15,7 +15,34 @@ export default function SuperAdminFairAllocation() {
   const totalWeight = weights.previousCompliance + weights.companySize + weights.historicalRetention;
 
   useEffect(() => {
-    // In a real app we fetch this from API
+    const fetchSettings = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        const res = await axios.get('/api/v1/admin/system-settings', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        const settings = res.data.reduce((acc: any, curr: any) => {
+          acc[curr.key] = curr.value;
+          return acc;
+        }, {});
+
+        if (settings.min_equity_quota) setMinQuota(Number(settings.min_equity_quota));
+        if (settings.max_equity_quota) setMaxQuota(Number(settings.max_equity_quota));
+        
+        if (settings.fair_participation_weights) {
+          const w = JSON.parse(settings.fair_participation_weights);
+          setWeights({
+            previousCompliance: w.previousCompliance || 40,
+            companySize: w.companySize || 30,
+            historicalRetention: w.historicalRetention || 30
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch fair allocation settings", error);
+      }
+    };
+    fetchSettings();
   }, []);
 
   const handleSave = async () => {
@@ -25,12 +52,12 @@ export default function SuperAdminFairAllocation() {
     
     try {
       const token = localStorage.getItem('access_token');
-      await axios.patch('http://localhost:8000/api/v1/admin/fair-allocation-settings', 
-        {
-          min_equity_quota: minQuota,
-          max_equity_quota: maxQuota,
-          fair_participation_weights: weights
-        },
+      await axios.patch('/api/v1/admin/system-settings', 
+        [
+          { key: 'min_equity_quota', value: minQuota.toString(), description: 'Minimum Equity Quota' },
+          { key: 'max_equity_quota', value: maxQuota.toString(), description: 'Maximum Equity Quota' },
+          { key: 'fair_participation_weights', value: JSON.stringify(weights), description: 'Fair Participation Weights' }
+        ],
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -44,7 +71,7 @@ export default function SuperAdminFairAllocation() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-neutral-900">Fair Allocation Engine</h1>
         <p className="text-neutral-500 text-sm mt-1">Configure the global parameters for the Equity Track quota system.</p>
@@ -55,6 +82,18 @@ export default function SuperAdminFairAllocation() {
           Fair Allocation settings updated successfully.
         </div>
       )}
+
+      <div className="bg-blue-50 p-5 rounded-xl border border-blue-200 mb-6 flex gap-4 text-blue-900">
+        <span className="text-2xl">💡</span>
+        <div>
+          <h3 className="font-bold mb-1">How Dual-Track Fair Allocation Works</h3>
+          <p className="text-sm opacity-90 leading-relaxed">
+            Every internship posting is assigned to either the <strong>Competitive Track</strong> (strict skill filters) or the <strong>Equity and Developmental Track</strong>. 
+            Companies must satisfy a minimum cycle-level equity quota for the Equity Track, based on their Fair Participation Score. 
+            When presenting students for the Equity Track, the system strictly enforces <strong>forced T1 → T2 → T3 interleaving</strong>, ensuring strong and developing students are seen equally.
+          </p>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Quota Range */}
@@ -76,7 +115,7 @@ export default function SuperAdminFairAllocation() {
               <input 
                 type="range" min="0" max="50" step="1"
                 value={minQuota}
-                onChange={(e) => setMinQuota(parseInt(e.target.value))}
+                onChange={(e) => setMinQuota(Math.min(parseInt(e.target.value), maxQuota - 1))}
                 className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
               <p className="text-xs text-neutral-500 mt-2">The absolute minimum percentage of slots a company must offer to the Equity Track.</p>
@@ -90,7 +129,7 @@ export default function SuperAdminFairAllocation() {
               <input 
                 type="range" min="0" max="50" step="1"
                 value={maxQuota}
-                onChange={(e) => setMaxQuota(parseInt(e.target.value))}
+                onChange={(e) => setMaxQuota(Math.max(parseInt(e.target.value), minQuota + 1))}
                 className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
               <p className="text-xs text-neutral-500 mt-2">The highest quota ceiling for companies with poor Fair Participation Scores.</p>

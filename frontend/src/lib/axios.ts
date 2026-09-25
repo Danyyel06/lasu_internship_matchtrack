@@ -1,10 +1,11 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api/v1',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: import.meta.env.VITE_API_URL
+    ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api/v1`
+    : '/api/v1',
+  // Do NOT set a default Content-Type here — axios auto-selects the correct one
+  // (application/json for objects, multipart/form-data with boundary for FormData)
 });
 
 // Request interceptor: attach JWT token

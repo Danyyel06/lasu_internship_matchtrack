@@ -13,6 +13,7 @@ from app.models.internship import Internship
 from app.models.company import Company
 from app.models.academic_supervisor_profile import AcademicSupervisorProfile
 from app.models.intervention import Intervention
+from app.models.notification import Notification
 from app.dependencies import get_current_user, require_role
 
 router = APIRouter()
@@ -107,6 +108,8 @@ class LogWallItem(BaseModel):
     wedStatus: str  # submitted | pending | missed
     satStatus: str
     quizPassed: Optional[bool] = None
+    wedContent: Optional[dict] = None
+    satContent: Optional[dict] = None
 
 
 @router.get("/log-wall", response_model=List[LogWallItem])
@@ -184,6 +187,8 @@ async def get_log_wall(
                     wedStatus="submitted" if log.wed_submitted_at else "pending",
                     satStatus="submitted" if log.sat_submitted_at else "pending",
                     quizPassed=quiz.passed if quiz else None,
+                    wedContent=log.wed_content,
+                    satContent=log.sat_content,
                 )
             )
 
@@ -337,6 +342,7 @@ class AcadSupProfileUpdate(BaseModel):
     last_name: str
     phone_number: str | None = None
     office_location: str | None = None
+    title: str | None = None
 
 
 @router.get("/profile")
@@ -358,10 +364,11 @@ async def get_acad_sup_profile(
         "last_name": current_user.last_name,
         "email": current_user.email,
         "department": profile.department,
-        "faculty": getattr(profile, "faculty", "N/A"),
+        "faculty": profile.faculty or "",
         "is_verified": current_user.is_verified,
-        "phone_number": getattr(current_user, "phone_number", None) or "+234 XXX XXX XXXX",
-        "office_location": getattr(profile, "office_location", None) or "Not set",
+        "phone_number": profile.phone_number or "",
+        "office_location": profile.office_location or "",
+        "title": profile.title or "",
     }
 
 
@@ -382,6 +389,47 @@ async def update_acad_sup_profile(
 
     current_user.first_name = req.first_name
     current_user.last_name = req.last_name
+    if req.phone_number is not None:
+        profile.phone_number = req.phone_number
+    if req.office_location is not None:
+        profile.office_location = req.office_location
+    if req.title is not None:
+        profile.title = req.title
 
     await db.commit()
     return {"message": "Profile updated successfully"}
+
+class AcadSupAlertResponse(BaseModel):
+    id: int
+    type: str
+    message: str
+    is_read: bool
+    created_at: datetime
+    related_entity_id: Optional[int] = None
+    related_entity_type: Optional[str] = None
+
+@router.get("/alerts", response_model=List[AcadSupAlertResponse])
+async def get_alerts(
+    current_user: User = Depends(require_role(UserRole.ACADEMIC_SUPERVISOR)),
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = (
+        select(Notification)
+        .where(Notification.user_id == current_user.id)
+        .order_by(Notification.created_at.desc())
+    )
+    res = await db.execute(stmt)
+    notifications = res.scalars().all()
+    
+    return [
+        AcadSupAlertResponse(
+            id=n.id,
+            type=n.type,
+            message=n.message,
+            is_read=n.is_read,
+            created_at=n.created_at,
+            related_entity_id=n.related_entity_id,
+            related_entity_type=n.related_entity_type
+        )
+        for n in notifications
+    ]

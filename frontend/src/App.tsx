@@ -3,9 +3,10 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import SignUpPage from './pages/SignUpPage';
 import StudentRegister from './pages/register/StudentRegister';
-import CompanySignUp from './pages/register/CompanySignUp';
 import OnboardingWizard from './pages/student/OnboardingWizard';
+import CompanyOnboarding from './pages/company/CompanyOnboarding';
 import CompanyOnboardingWizard from './pages/company/CompanyOnboardingWizard';
+import { VerificationCentre, VerificationCentreTier2, VerificationCentreTier3 } from './pages/company/VerificationCentre';
 import CompanyDashboardHome from './pages/company/DashboardHome';
 import PostInternship from './pages/company/PostInternship';
 import ManagePostings from './pages/company/ManagePostings';
@@ -19,9 +20,14 @@ import StudentLayout from './layouts/StudentLayout';
 import CompanyLayout from './layouts/CompanyLayout';
 import SupervisorLayout from './layouts/SupervisorLayout';
 import GrowthDashboard from './pages/student/GrowthDashboard';
+import StudentProfile from './pages/student/StudentProfile';
+import StudentNotifications from './pages/student/Notifications';
 
 // New: Evidence Log (replaces Pulse)
 import LogDashboard from './pages/student/LogDashboard';
+import SkillVerification from './pages/student/SkillVerification';
+import SkillDiagnosticTest from './pages/student/SkillDiagnosticTest';
+import SkillVerificationResult from './pages/student/SkillVerificationResult';
 import LogCheckinForm from './pages/student/LogCheckinForm';
 import AIQuiz from './pages/student/AIQuiz';
 
@@ -32,6 +38,7 @@ import InternProfile from './pages/supervisor/InternProfile';
 import SupervisorAlerts from './pages/supervisor/Alerts';
 import SupervisorProfile from './pages/supervisor/Profile';
 import ManageSupervisors from './pages/company/ManageSupervisors';
+import CompanyReports from './pages/company/Reports';
 import CompanyProfile from './pages/company/Profile';
 
 // New: Monthly Review (replaces Frameworks for supervisor)
@@ -71,23 +78,19 @@ import SuperAdminReports from './pages/super-admin/Reports';
 import SuperAdminSystemSettings from './pages/super-admin/SystemSettings';
 import SuperAdminNotifications from './pages/super-admin/Notifications';
 import SuperAdminProfile from './pages/super-admin/Profile';
-
-// Placeholder Pages
-const Placeholder = ({ title }: { title: string }) => (
-  <div className="flex items-center justify-center h-full min-h-[400px]">
-    <h2 className="text-2xl font-bold text-neutral-400">{title}</h2>
-  </div>
-);
+import CompanyDetailView from './pages/super-admin/CompanyDetailView';
+import InstallPrompt from './components/InstallPrompt';
 
 function App() {
   return (
-    <Routes>
+    <>
+      <Routes>
       {/* Public / Entry Routes */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
       <Route path="/register/student" element={<StudentRegister />} />
-      <Route path="/register/company" element={<CompanySignUp />} />
+      <Route path="/register/company" element={<CompanyOnboarding />} />
       
       {/* Student Onboarding (no sidebar) */}
       <Route path="/student/onboarding" element={<OnboardingWizard />} />
@@ -105,8 +108,12 @@ function App() {
         <Route path="dashboard" element={<StudentDashboardHome />} />
         <Route path="browse" element={<BrowseInternships />} />
         <Route path="browse/:id" element={<InternshipDetail />} />
+        <Route path="skill-verification" element={<SkillVerification />} />
+        <Route path="skill-verification/test" element={<SkillDiagnosticTest />} />
+        <Route path="skill-verification/result" element={<SkillVerificationResult />} />
         <Route path="applications" element={<MyApplications />} />
-        <Route path="profile" element={<Placeholder title="My Profile & Fit Score" />} />
+        <Route path="profile" element={<StudentProfile />} />
+        <Route path="notifications" element={<StudentNotifications />} />
         <Route path="log" element={<LogDashboard />} />
         <Route path="log/submit/:checkInType" element={<LogCheckinForm />} />
         <Route path="log/quiz/:logId" element={<AIQuiz />} />
@@ -116,13 +123,16 @@ function App() {
       {/* Company Protected Routes */}
       <Route path="/company" element={<CompanyLayout />}>
         <Route path="dashboard" element={<CompanyDashboardHome />} />
+        <Route path="verification" element={<VerificationCentre />} />
+        <Route path="verification/tier-2" element={<VerificationCentreTier2 />} />
+        <Route path="verification/tier-3" element={<VerificationCentreTier3 />} />
         <Route path="post-internship" element={<PostInternship />} />
         <Route path="edit-internship/:id" element={<PostInternship />} />
         <Route path="postings" element={<ManagePostings />} />
         <Route path="applications" element={<ApplicationsReceived />} />
         <Route path="interns" element={<MyInterns />} />
         <Route path="supervisors" element={<ManageSupervisors />} />
-        <Route path="reports" element={<Placeholder title="Performance Reports" />} />
+        <Route path="reports" element={<CompanyReports />} />
         <Route path="profile" element={<CompanyProfile />} />
       </Route>
 
@@ -162,6 +172,7 @@ function App() {
       <Route path="/super-admin" element={<SuperAdminLayout />}>
         <Route path="dashboard" element={<SuperAdminDashboard />} />
         <Route path="verify" element={<SuperAdminVerifyAccounts />} />
+        <Route path="companies/:id" element={<CompanyDetailView />} />
         <Route path="users" element={<SuperAdminManageUsers />} />
         <Route path="job-families" element={<SuperAdminJobFamilies />} />
         <Route path="fair-allocation" element={<SuperAdminFairAllocation />} />
@@ -171,6 +182,8 @@ function App() {
         <Route path="profile" element={<SuperAdminProfile />} />
       </Route>
     </Routes>
+    <InstallPrompt />
+    </>
   );
 }
 

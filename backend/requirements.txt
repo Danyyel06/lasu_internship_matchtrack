@@ -11,3 +11,6 @@ redis
 python-dotenv
 email-validator
 python-multipart
+httpx
+pypdf
+pillow

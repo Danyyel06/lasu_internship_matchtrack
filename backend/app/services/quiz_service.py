@@ -7,14 +7,18 @@ the API key is not configured.
 """
 import os
 import json
+import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.models.weekly_log import WeeklyLog, AIQuizAttempt
 from app.schemas.log import QuizResultResponse
+
+logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 PASS_THRESHOLD = 3  # Score >= 3 out of 5 to pass
@@ -61,7 +65,11 @@ class AIQuizService:
         if not GEMINI_API_KEY:
             return None
 
-        log_res = await db.execute(select(WeeklyLog).where(WeeklyLog.id == log_id))
+        log_res = await db.execute(
+            select(WeeklyLog)
+            .options(selectinload(WeeklyLog.quiz_attempt))
+            .where(WeeklyLog.id == log_id)
+        )
         log = log_res.scalar_one_or_none()
         if not log:
             return None
@@ -72,16 +80,40 @@ class AIQuizService:
 
         try:
             import httpx
+            import asyncio
 
             prompt = _build_prompt(log)
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}",
-                    json={
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024},
-                    },
-                )
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={GEMINI_API_KEY}"
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "temperature": 0.7, 
+                    "maxOutputTokens": 2048,
+                    "responseMimeType": "application/json"
+                },
+            }
+            headers = {
+                "Content-Type": "application/json",
+                "x-goog-api-key": GEMINI_API_KEY,
+            }
+
+            # Retry with exponential backoff for rate-limit (429) errors
+            max_retries = 3
+            resp = None
+            for attempt_num in range(max_retries + 1):
+                async with httpx.AsyncClient(timeout=30) as client:
+                    resp = await client.post(url, headers=headers, json=payload)
+
+                if resp.status_code == 429 and attempt_num < max_retries:
+                    wait = 2 ** (attempt_num + 1)  # 2s, 4s, 8s
+                    logger.warning(
+                        "Rate-limited (429) on quiz generation for log_id=%s, retrying in %ds (attempt %d/%d)",
+                        log_id, wait, attempt_num + 1, max_retries,
+                    )
+                    await asyncio.sleep(wait)
+                    continue
+                break
+
             resp.raise_for_status()
             raw_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
 
@@ -113,7 +145,8 @@ class AIQuizService:
             await db.refresh(attempt)
             return attempt
 
-        except Exception:
+        except Exception as exc:
+            logger.error("Quiz generation failed for log_id=%s: %s", log_id, exc, exc_info=True)
             # Generation failed — quiz remains unavailable
             return None
 
