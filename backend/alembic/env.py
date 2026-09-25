@@ -38,8 +38,16 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def get_db_url() -> str:
+    db_url = settings.DATABASE_URL
+    if db_url.startswith("postgresql://"):
+        return db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if db_url.startswith("postgres://"):
+        return db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    return db_url
+
 def run_migrations_offline() -> None:
-    url = settings.DATABASE_URL
+    url = get_db_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -59,7 +67,7 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    connectable = create_async_engine(settings.DATABASE_URL, poolclass=pool.NullPool)
+    connectable = create_async_engine(get_db_url(), poolclass=pool.NullPool)
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
