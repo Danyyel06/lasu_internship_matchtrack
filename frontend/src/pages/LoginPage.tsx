@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+const FALLBACK_API = 'https://lasu-internship-backend.onrender.com';
+
 const getApiBase = () => {
-  const envUrl = import.meta.env.VITE_API_URL || '';
-  if (!envUrl) return '/api/v1';
+  const envUrl = import.meta.env.VITE_API_URL || FALLBACK_API;
   const cleanUrl = envUrl.replace(/\/$/, '');
   if (cleanUrl.endsWith('/api/v1')) return cleanUrl;
   return `${cleanUrl}/api/v1`;
