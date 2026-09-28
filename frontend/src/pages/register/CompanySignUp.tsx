@@ -53,7 +53,7 @@ export default function CompanySignUp() {
     setLoading(true);
     try {
       // Create company account via the new endpoint that backend is building
-      await axios.post(`${API_BASE}/api/v1/companies/register`, {
+      await axios.post(`${API_BASE}/companies/register`, {
         email: formData.email,
         password: formData.password,
         first_name: formData.first_name,

@@ -43,7 +43,7 @@ export default function OnboardingWizard() {
     // Fetch Job Families
     const fetchJobFamilies = async () => {
       try {
-        const response = await axios.get(`${API_BASE}/api/v1/job-families/`);
+        const response = await axios.get(`${API_BASE}/job-families/`);
         setDbJobFamilies(response.data);
       } catch (err) {
         console.error('Failed to fetch job families', err);
@@ -123,7 +123,7 @@ export default function OnboardingWizard() {
         }
       };
 
-      const response = await axios.post(`${API_BASE}/api/v1/students/onboarding`, payload, {
+      const response = await axios.post(`${API_BASE}/students/onboarding`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

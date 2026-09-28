@@ -98,7 +98,7 @@ export default function StudentRegister() {
     fd.append('file', file);
 
     try {
-      const res = await axios.post(`${API_BASE}/api/v1/transcript/extract-cgpa/`, fd, {
+      const res = await axios.post(`${API_BASE}/transcript/extract-cgpa/`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       if (res.data.success) {
@@ -184,7 +184,7 @@ export default function StudentRegister() {
     setLoading(true);
     try {
       // Create account
-      await axios.post(`${API_BASE}/api/v1/auth/register`, {
+      await axios.post(`${API_BASE}/auth/register`, {
         email: formData.email,
         password: formData.password,
         first_name: formData.first_name,
