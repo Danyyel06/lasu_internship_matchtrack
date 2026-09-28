@@ -10,7 +10,13 @@ if db_url.startswith("postgresql://"):
 elif db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
 
-async_engine = create_async_engine(db_url, echo=False)
+async_engine = create_async_engine(
+    db_url,
+    echo=False,
+    # Required for Render's pgBouncer (transaction pool mode):
+    # disables asyncpg prepared-statement caching which conflicts with pgBouncer.
+    connect_args={"statement_cache_size": 0},
+)
 AsyncSessionLocal = async_sessionmaker(
     async_engine, class_=AsyncSession, expire_on_commit=False
 )
