@@ -2,7 +2,14 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+const getApiBase = () => {
+  const envUrl = import.meta.env.VITE_API_URL || '';
+  if (!envUrl) return '/api/v1';
+  const cleanUrl = envUrl.replace(/\/$/, '');
+  if (cleanUrl.endsWith('/api/v1')) return cleanUrl;
+  return `${cleanUrl}/api/v1`;
+};
+const API_BASE = getApiBase();
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -22,7 +29,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const res = await axios.post(`${API_BASE}/api/v1/auth/login`, {
+      const res = await axios.post(`${API_BASE}/auth/login`, {
         email: formData.email,
         password: formData.password,
       });

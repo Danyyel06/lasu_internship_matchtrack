@@ -1,9 +1,15 @@
 import axios from 'axios';
 
+const getBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL || '';
+  if (!envUrl) return '/api/v1';
+  const cleanUrl = envUrl.replace(/\/$/, '');
+  if (cleanUrl.endsWith('/api/v1')) return cleanUrl;
+  return `${cleanUrl}/api/v1`;
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL
-    ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api/v1`
-    : '/api/v1',
+  baseURL: getBaseUrl(),
   // Do NOT set a default Content-Type here — axios auto-selects the correct one
   // (application/json for objects, multipart/form-data with boundary for FormData)
 });

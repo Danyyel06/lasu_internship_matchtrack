@@ -2,7 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+const getApiBase = () => {
+  const envUrl = import.meta.env.VITE_API_URL || '';
+  if (!envUrl) return '/api/v1';
+  const cleanUrl = envUrl.replace(/\/$/, '');
+  if (cleanUrl.endsWith('/api/v1')) return cleanUrl;
+  return `${cleanUrl}/api/v1`;
+};
+const API_BASE = getApiBase();
 
 export default function StudentRegister() {
   const navigate = useNavigate();
@@ -24,7 +31,7 @@ export default function StudentRegister() {
   useEffect(() => {
     const fetchFaculties = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/api/v1/auth/faculties`);
+        const res = await axios.get(`${API_BASE}/auth/faculties`);
         setFaculties(res.data);
       } catch (err) {
         console.error("Failed to fetch faculties", err);
